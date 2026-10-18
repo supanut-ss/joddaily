@@ -112,7 +112,7 @@ public class LedgerNotifier(AppDbContext db, LineClient line, IOptions<AppSettin
             {
                 var used = spent.FirstOrDefault(x => x.UserId == b.UserId && x.Category == b.Category)?.Sum ?? 0;
                 var level = BudgetLevel(used, b.LimitSatang);
-                var already = sent.FirstOrDefault(a => a.Category == b.Category)?.Level ?? 0;
+                var already = sent.FirstOrDefault(a => a.UserId == b.UserId && a.Category == b.Category)?.Level ?? 0;
                 if (level > already) hits.Add(new BudgetHit(b.Category, b.LimitSatang, used, level));
             }
             if (hits.Count == 0 || !await line.PushAsync(users[group.Key].LineUserId, LedgerCards.BudgetAlert(hits, LiffUrl))) continue;

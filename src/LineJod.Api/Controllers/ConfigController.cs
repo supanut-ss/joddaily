@@ -13,7 +13,7 @@ using LineJod.Services;
 namespace LineJod.Controllers;
 
 [ApiController]
-public class ConfigController(IOptions<AppSettings> options, LedgerService ledger, LedgerNotifier notifier, RichMenuService richMenu, AppDbContext db) : ControllerBase
+public class ConfigController(IOptions<AppSettings> options, LedgerService ledger, LedgerNotifier notifier, RichMenuService richMenu, AppDbContext db, ILogger<ConfigController> log) : ControllerBase
 {
     [HttpGet("api/config")]
     public IActionResult Config() => Ok(new { liffId = options.Value.Liff.Id });
@@ -26,13 +26,29 @@ public class ConfigController(IOptions<AppSettings> options, LedgerService ledge
         if (CheckKey(key) is { } denied) return denied;
 
         var today = BangkokTime.Today;
-        var recorded = await ledger.RecordDueSubscriptionsAsync(today);   // first, so a charge made today is never announced as "tomorrow"
-        var recurring = await ledger.RecordDueRecurringAsync(today);
-        var notices = await notifier.RunAsync(today, BangkokTime.Now.Hour);   // each user gets their pushes in the first run at or after their hour
+        var failed = new List<string>();
 
-        var cutoff = DateTime.UtcNow.AddDays(-7);                          // housekeeping: webhook idempotency rows
-        await db.ProcessedEvents.Where(e => e.ProcessedAt < cutoff).ExecuteDeleteAsync();
-        return Ok(new { subscriptionCharges = recorded, recurringEntries = recurring, notices.ChargeNotices, notices.TrialNotices, notices.BudgetAlerts, notices.Nudges });
+        // Independent steps: one failing (say a duplicate-key race with an overlapping run) must not stop the others, and the run still reports it.
+        async Task<T> Step<T>(string name, Func<Task<T>> run, T fallback)
+        {
+            try { return await run(); }
+            catch (Exception ex)
+            {
+                log.LogError(ex, "Job step {Step} failed", name);
+                failed.Add(name);
+                db.ChangeTracker.Clear();
+                return fallback;
+            }
+        }
+
+        var recorded = await Step("subscriptions", () => ledger.RecordDueSubscriptionsAsync(today), 0);   // recording first, so a charge made today is never announced as "tomorrow"
+        var recurring = await Step("recurring", () => ledger.RecordDueRecurringAsync(today), 0);
+        var notices = await Step("notices", () => notifier.RunAsync(today, BangkokTime.Now.Hour), new LedgerNotifier.Result(0, 0));   // each user gets their pushes in the first run at or after their hour
+        var cutoff = DateTime.UtcNow.AddDays(-7);                                                                                       // housekeeping: webhook idempotency rows
+        await Step("housekeeping", () => db.ProcessedEvents.Where(e => e.ProcessedAt < cutoff).ExecuteDeleteAsync(), 0);
+
+        var result = new { subscriptionCharges = recorded, recurringEntries = recurring, notices.ChargeNotices, notices.TrialNotices, notices.BudgetAlerts, notices.Nudges, failed };
+        return failed.Count == 0 ? Ok(result) : StatusCode(500, result);
     }
 
     /// <summary>One-off setup: installs the rich menu as the default menu (run again after changing the image or the tiles).</summary>

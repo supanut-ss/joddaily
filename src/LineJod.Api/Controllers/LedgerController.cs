@@ -213,10 +213,19 @@ public class LedgerController(AppDbContext db, LedgerService ledger, LiffAuth au
         var items = (req.Items ?? new()).Where(i => LedgerCategories.Expense.Contains(i.Category)).ToList();
         if (items.Any(i => i.Limit < 0 || i.Limit > MaxAmountBaht)) return BadRequest(new { error = "งบต้องไม่ติดลบ" });
 
+        var wanted = items.Where(i => i.Limit > 0).DistinctBy(i => i.Category).ToDictionary(i => i.Category, i => Money.ToSatang(i.Limit));
+        var before = await db.LedgerBudgets.AsNoTracking().Where(b => b.UserId == user.Id).ToDictionaryAsync(b => b.Category, b => b.LimitSatang);   // untracked: the rows are re-added below under the same keys
+        var month = BangkokTime.Today.ToString("yyyy-MM");
+        // a category whose limit changed (or was added / removed) may cross 80% / 100% again, so its alerts for this month start over
+        var changed = wanted.Keys.Union(before.Keys).Where(c => !wanted.TryGetValue(c, out var w) || !before.TryGetValue(c, out var o) || w != o).ToList();
+
+        await using var tx = await db.Database.BeginTransactionAsync();
         await db.LedgerBudgets.Where(b => b.UserId == user.Id).ExecuteDeleteAsync();
-        foreach (var i in items.Where(i => i.Limit > 0).DistinctBy(i => i.Category))
-            db.LedgerBudgets.Add(new LedgerBudget { UserId = user.Id, Category = i.Category, LimitSatang = Money.ToSatang(i.Limit) });
+        await db.LedgerBudgetAlerts.Where(a => a.UserId == user.Id && a.Month == month && changed.Contains(a.Category)).ExecuteDeleteAsync();
+        foreach (var (category, limit) in wanted)
+            db.LedgerBudgets.Add(new LedgerBudget { UserId = user.Id, Category = category, LimitSatang = limit });
         await db.SaveChangesAsync();
+        await tx.CommitAsync();
         return Ok(new { saved = true });
     }
 
