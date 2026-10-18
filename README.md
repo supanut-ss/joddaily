@@ -8,7 +8,7 @@ This project is separate from Pay_Yet (bill collection); it only reuses its stac
 - Record income / expenses from a LIFF page: on-page keypad, category icons, 10-second undo.
 - Home (balance, monthly budgets with warnings, next subscription, latest records), history by day, report (category donut + daily bars).
 - Subscriptions (monthly / yearly, optional free-trial end date). The daily job records each charge as an expense on its billing day, catching up missed days, never twice for the same day.
-- Preview without LINE: open `/?demo=1` (sample data in memory). `?tab=new|history|report|subs` jumps to a screen (use these as rich-menu links).
+- Preview without LINE: open `/?demo=1` (sample data in memory). `?tab=new|history|report|subs` jumps to a screen (also `tab=budget`, and `tab=new&kind=income`; the rich menu uses these links).
 
 ## Chat (LINE bot, 1:1 chat only)
 
@@ -29,19 +29,19 @@ Daily push (job): **the day before** a subscription charge, and **3 days and 1 d
 
 ## Not built yet
 
-Reading slips (images), rich menu, notification time per user.
+Reading slips (images), notification time per user.
 
 ## Setup
 
 1. Create a DB and import [db/schema.sql](db/schema.sql); set `Db:ServerVersion` if it is not MariaDB 11.8.
 2. LINE Developers: a Messaging API channel (webhook URL `https://<host>/api/line/webhook`, *Use webhook* on, auto-reply and greeting off) and a LINE Login channel in the same provider with a LIFF app (size *Full*, scope `openid profile`, endpoint = the public URL of this site). Link the Login channel to the bot. Fill `appsettings.Production.json` (git-ignored): `ConnectionStrings:Default`, `Line:ChannelSecret`, `Line:ChannelAccessToken`, `Line:LoginChannelId`, `Liff:Id`, `Jobs:Key`.
 3. Schedule `GET /jobs/daily?key=<Jobs:Key>` once a day at about 09:00 Asia/Bangkok (records due subscription charges, then sends the notices).
-4. Rich-menu links (optional): `https://liff.line.me/<Liff:Id>?tab=new|history|report|subs`.
+4. Rich menu (6 tiles: จดรายจ่าย · จดรายรับ · สรุปเดือนนี้ · ประวัติ · ค่าสมาชิก · งบประมาณ): after deploying, open `https://<host>/jobs/richmenu?key=<Jobs:Key>` once. It creates the menu, uploads `richmenu/richmenu.png`, makes it the default for everyone and removes the previous copy. To change the look edit `tools/richmenu/menu.html`, run `tools/richmenu/render.ps1` (headless Edge/Chrome) and call the URL again. Tiles open LIFF with `?tab=new|new&kind=income|history|subs|budget`; สรุปเดือนนี้ sends the chat command `สรุป`.
 
 ## Verified / not verified
 
-Verified (55 unit tests on SQLite): chat parser (dates, several items, categories, subscription / trial forms), chat service (save, undo window, ownership, category change, subscription create / update / stop), webhook processor (new user, redelivery, groups ignored, postback, follow), signature check, notifier (once only, trial 3 / 1 day, late run, failed push retried, trial date change resets), billing dates, charge catch-up, month summary. The LIFF page was checked in demo mode in a browser.
-Not verified: real LINE delivery and **Flex rendering on a phone** (cards are built to the Flex spec but never shown by LINE), real LIFF login, the MariaDB schema and queries, API endpoints end to end.
+Verified (60 unit tests on SQLite): chat parser (dates, several items, categories, subscription / trial forms), chat service (save, undo window, ownership, category change, subscription create / update / stop), webhook processor (new user, redelivery, groups ignored, postback, follow), signature check, rich menu (tile bounds, links, install order, failed upload cleanup), notifier (once only, trial 3 / 1 day, late run, failed push retried, trial date change resets), billing dates, charge catch-up, month summary. The LIFF page was checked in demo mode in a browser.
+Not verified: installing the menu on LINE and how it looks in the chat, real LINE delivery and **Flex rendering on a phone** (cards are built to the Flex spec but never shown by LINE), real LIFF login, the MariaDB schema and queries, API endpoints end to end.
 
 ```
 dotnet test LineJod.slnx

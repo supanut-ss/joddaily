@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>LineJod rich menu</title>
+<style>
+  /* Source of src/LineJod.Api/richmenu/richmenu.png (2500 x 1686, 3 x 2 tiles). Render with tools/richmenu/render.ps1. */
+  :root { --bg:#F3F6F4; --card:#FFFFFF; --ink:#0F1F18; --muted:#55665D; --line:#D9E4DE; --green:#047857; --soft:#D6F0E4; }
+  * { box-sizing:border-box; margin:0; }
+  html, body { width:2500px; height:1686px; background:var(--bg); overflow:hidden; }
+  body { font-family:"Leelawadee UI","Noto Sans Thai",Tahoma,sans-serif; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(2,1fr); width:2500px; height:1686px; }
+  .tile { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:56px; background:var(--card); color:var(--ink);
+          border-right:4px solid var(--line); border-bottom:4px solid var(--line); }
+  .tile:nth-child(3n) { border-right:0; }
+  .tile:nth-child(n+4) { border-bottom:0; }
+  .ic { width:300px; height:300px; border-radius:90px; background:var(--soft); color:var(--green); display:grid; place-items:center; }
+  .ic svg { width:170px; height:170px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+  .label { font-size:112px; font-weight:700; line-height:1.1; }
+  .sub { font-size:58px; color:var(--muted); margin-top:-30px; }
+  .primary { background:var(--green); color:#fff; }
+  .primary .ic { background:rgba(255,255,255,.18); color:#fff; }
+  .primary .sub { color:rgba(255,255,255,.85); }
+</style>
+</head>
+<body>
+<div class="grid">
+  <div class="tile primary">
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></div>
+    <div class="label">จดรายจ่าย</div><div class="sub">เปิดฟอร์ม</div>
+  </div>
+  <div class="tile">
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+    <div class="label">จดรายรับ</div><div class="sub">เงินเข้า</div>
+  </div>
+  <div class="tile">
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M21.2 15.9A10 10 0 1 1 8 2.8M22 12A10 10 0 0 0 12 2v10z"/></svg></div>
+    <div class="label">สรุปเดือนนี้</div><div class="sub">ดูในแชต</div>
+  </div>
+  <div class="tile">
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></div>
+    <div class="label">ประวัติ</div><div class="sub">แก้ไข / ลบ</div>
+  </div>
+  <div class="tile">
+    <div class="ic"><svg viewBox="0 0 24 24"><path d="m17 2 4 4-4 4M3 11V10a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 0 1-4 4H3"/></svg></div>
+    <div class="label">ค่าสมาชิก</div><div class="sub">Netflix, Spotify…</div>
+  </div>
+  <div class="tile">
+    <div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+    <div class="label">งบประมาณ</div><div class="sub">ตั้งงบต่อเดือน</div>
+  </div>
+</div>
+</body>
+</html>

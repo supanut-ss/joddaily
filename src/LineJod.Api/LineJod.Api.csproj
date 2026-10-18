@@ -15,6 +15,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- rich menu image uploaded to LINE by POST /jobs/richmenu -->
+    <Content Include="richmenu\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="LineJod.Tests" />
   </ItemGroup>
 </Project>

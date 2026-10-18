@@ -23,6 +23,7 @@ builder.Services.AddScoped<LedgerService>();
 builder.Services.AddScoped<LedgerChatService>();
 builder.Services.AddScoped<LedgerNotifier>();
 builder.Services.AddScoped<WebhookProcessor>();
+builder.Services.AddScoped<RichMenuService>();
 
 var app = builder.Build();
 

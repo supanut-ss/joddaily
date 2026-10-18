@@ -88,6 +88,61 @@ public class LineClient(HttpClient http, IOptions<AppSettings> options, ILogger<
         }
         return false;
     }
+
+    // ---- rich menu ----
+
+    /// <summary>Creates a rich menu and returns its id; null when LINE refused it.</summary>
+    public async Task<string?> CreateRichMenuAsync(object menu)
+    {
+        var (ok, body) = await SendAsync(HttpMethod.Post, $"{Api}/richmenu", JsonContent.Create(menu, options: Json));
+        if (!ok) return null;
+        using var doc = JsonDocument.Parse(body);
+        return doc.RootElement.TryGetProperty("richMenuId", out var id) ? id.GetString() : null;
+    }
+
+    public async Task<bool> UploadRichMenuImageAsync(string richMenuId, byte[] png)
+    {
+        var content = new ByteArrayContent(png);
+        content.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        return (await SendAsync(HttpMethod.Post, $"https://api-data.line.me/v2/bot/richmenu/{richMenuId}/content", content)).Ok;
+    }
+
+    /// <summary>Shows this menu to every user who has no menu of their own.</summary>
+    public async Task<bool> SetDefaultRichMenuAsync(string richMenuId) =>
+        (await SendAsync(HttpMethod.Post, $"{Api}/user/all/richmenu/{richMenuId}", null)).Ok;
+
+    public async Task<List<(string Id, string Name)>> ListRichMenusAsync()
+    {
+        var (ok, body) = await SendAsync(HttpMethod.Get, $"{Api}/richmenu/list", null);
+        var list = new List<(string, string)>();
+        if (!ok) return list;
+        using var doc = JsonDocument.Parse(body);
+        if (doc.RootElement.TryGetProperty("richmenus", out var menus))
+            foreach (var m in menus.EnumerateArray())
+                list.Add((m.GetProperty("richMenuId").GetString()!, m.TryGetProperty("name", out var n) ? n.GetString() ?? "" : ""));
+        return list;
+    }
+
+    public async Task<bool> DeleteRichMenuAsync(string richMenuId) =>
+        (await SendAsync(HttpMethod.Delete, $"{Api}/richmenu/{richMenuId}", null)).Ok;
+
+    private async Task<(bool Ok, string Body)> SendAsync(HttpMethod method, string url, HttpContent? content)
+    {
+        using var req = new HttpRequestMessage(method, url) { Content = content };
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Cfg.ChannelAccessToken);
+        try
+        {
+            using var res = await http.SendAsync(req);
+            var body = await res.Content.ReadAsStringAsync();
+            if (!res.IsSuccessStatusCode) log.LogWarning("LINE {Method} {Url} -> {Status}: {Body}", method, url, (int)res.StatusCode, body);
+            return (res.IsSuccessStatusCode, body);
+        }
+        catch (Exception ex)
+        {
+            log.LogError(ex, "LINE call failed: {Url}", url);
+            return (false, "");
+        }
+    }
 }
 
 public static class LineSignature

@@ -416,11 +416,11 @@
   }
 
   // ───────── add / edit entry ─────────
-  function openEntryForm(entry) {
+  function openEntryForm(entry, kind) {
     chrome(null);
     var st = entry
       ? { id: entry.id, kind: entry.kind, category: entry.category, amount: String(entry.amountSatang / 100), note: entry.note || '', date: entry.date }
-      : { id: null, kind: 'EXPENSE', category: 'food', amount: '', note: '', date: todayIso() };
+      : { id: null, kind: kind === 'INCOME' ? 'INCOME' : 'EXPENSE', category: kind === 'INCOME' ? 'salary' : 'food', amount: '', note: '', date: todayIso() };
     bar(entry ? 'แก้ไขรายการ' : 'จดรายการ', backToCurrent);
 
     var seg = el('div', { class: 'seg', role: 'group', 'aria-label': 'ประเภท' });
@@ -847,7 +847,11 @@
   buildTabs();
   function start(q) {
     var tab = q && q.get('tab');
-    if (tab === 'new') { current = 'home'; return openEntryForm(null); }
+    if (tab === 'new') { current = 'home'; return openEntryForm(null, q.get('kind') === 'income' ? 'INCOME' : 'EXPENSE'); }
+    if (tab === 'budget') {   // rich menu: straight to the budget form, back goes to the home screen
+      current = 'home'; chrome(null);
+      return api('api/ledger/home?month=' + month).then(function (d) { openBudgets(d.budgets); }).catch(function (e) { fail(e.message); });
+    }
     return open(['home', 'history', 'report', 'subs'].indexOf(tab) >= 0 ? tab : 'home');
   }
   if (DEMO) { Demo.init(); start(new URLSearchParams(location.search)); return; }
