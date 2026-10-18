@@ -111,3 +111,24 @@ public class LedgerRecurring
     public bool Active { get; set; } = true;
     public DateTime CreatedAt { get; set; }
 }
+
+/// <summary>Per-user notification choices. A user without a row has the defaults below.</summary>
+public class LedgerSettings
+{
+    public long UserId { get; set; }
+    public bool NotifyEnabled { get; set; } = true;       // master switch for every push of the ledger
+    public int NotifyHour { get; set; } = 9;               // 0-23, Asia/Bangkok: pushes go out once this hour has come
+    public bool NotifySubscriptions { get; set; } = true;  // charge tomorrow + free trial ending
+    public bool NotifyBudget { get; set; } = true;         // a budget reached 80% / was exceeded
+    public bool NotifyDaily { get; set; }                  // "nothing logged today" nudge (off until the user asks)
+    public DateOnly? LastNudgeOn { get; set; }
+}
+
+/// <summary>The highest budget alert already sent for a category in a month: 1 = reached 80%, 2 = exceeded.</summary>
+public class LedgerBudgetAlert
+{
+    public long UserId { get; set; }
+    public string Category { get; set; } = "";
+    public string Month { get; set; } = "";               // yyyy-MM
+    public int Level { get; set; }
+}

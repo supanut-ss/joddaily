@@ -390,7 +390,7 @@
 
   // ───────── home ─────────
   function loadHome() {
-    current = 'home'; chrome('home'); bar('จดจ่าย');
+    current = 'home'; chrome('home'); bar('จดจ่าย', null, ibtn('bell', 'ตั้งค่าแจ้งเตือน', openSettings));
     return load('api/ledger/home?month=' + month, renderHome);
   }
   function renderHome(d) {
@@ -1183,6 +1183,48 @@
     show(nodes);
   }
 
+  // ───────── notification settings ─────────
+  function openSettings() {
+    chrome(null); bar('ตั้งค่าแจ้งเตือน', loadHome);
+    var seq = navSeq;
+    show([el('div', { class: 'loading', text: 'กำลังโหลด…' })]);
+    api('api/ledger/settings').then(function (d) {
+      if (seq !== navSeq) return;
+      var enabled = el('input', { type: 'checkbox', id: 'n-on' }), subs = el('input', { type: 'checkbox', id: 'n-subs' }),
+        budget = el('input', { type: 'checkbox', id: 'n-budget' }), daily = el('input', { type: 'checkbox', id: 'n-daily' });
+      enabled.checked = d.enabled; subs.checked = d.subscriptions; budget.checked = d.budget; daily.checked = d.daily;
+      var hour = el('select', { class: 'inp', id: 'n-hour', 'aria-label': 'เวลาที่ส่ง' });
+      for (var h = 0; h < 24; h++) hour.appendChild(el('option', { value: String(h), text: pad(h) + ':00 น.' }));
+      hour.value = String(d.hour);
+      var err = el('div', { class: 'err', role: 'alert' });
+
+      function option(input, id, title, hint) {
+        return el('label', { class: 'check', for: id, style: 'align-items:flex-start' }, [input, el('span', {}, [el('span', { text: title }), el('span', { class: 'hint', style: 'display:block', text: hint })])]);
+      }
+      var kinds = [option(subs, 'n-subs', 'ค่าสมาชิก', 'เตือนก่อนตัดเงิน 1 วัน และก่อนทดลองฟรีหมด 3 วัน กับ 1 วัน'),
+        option(budget, 'n-budget', 'งบประมาณ', 'เมื่อใช้ถึง 80% และเมื่อเกินงบ (ครั้งเดียวต่อหมวดต่อเดือน)'),
+        option(daily, 'n-daily', 'เตือนให้จด', 'ถ้าวันนี้ยังไม่ได้จดอะไร (เฉพาะคนที่จดอยู่เป็นประจำ)')];
+      function sync() {
+        [subs, budget, daily, hour].forEach(function (c) { c.disabled = !enabled.checked; });
+      }
+      enabled.addEventListener('change', sync);
+      sync();
+
+      var save = el('button', { class: 'cta', type: 'button', text: 'บันทึก' });
+      save.addEventListener('click', function () {
+        save.disabled = true; err.textContent = '';
+        post('api/ledger/settings', { enabled: enabled.checked, hour: Number(hour.value), subscriptions: subs.checked, budget: budget.checked, daily: daily.checked })
+          .then(function () { loadHome(); toast('บันทึกการตั้งค่าแล้ว'); })
+          .catch(function (e) { err.textContent = e.message; save.disabled = false; });
+      });
+      show([el('section', { class: 'card' }, [
+        el('label', { class: 'check', for: 'n-on' }, [enabled, el('span', { text: 'รับแจ้งเตือนจากบอท' })]),
+        el('div', { class: 'field' }, [el('label', { for: 'n-hour', text: 'ส่งเวลา' }), hour,
+          el('span', { class: 'hint', text: 'ส่งภายในหนึ่งชั่วโมงหลังเวลานี้ แจ้งเตือนมาทางแชต LINE ของบอท' })])
+      ]), el('section', { class: 'card' }, [el('span', { class: 'lbl2', text: 'แจ้งเตือนเรื่องอะไร' })].concat(kinds)), err, save]);
+    }).catch(function (e) { if (seq === navSeq) fail(e.message); });
+  }
+
   // ───────── demo backend (?demo=1): sample data in memory, mirrors the API shapes ─────────
   var Demo = {
     seq: 100,
@@ -1198,6 +1240,7 @@
       this.entries.push({ id: 90, kind: 'EXPENSE', category: 'bills', amountSatang: 118000, date: lastMonth(18), note: 'ค่าไฟ', source: 'SLIP' },
         { id: 91, kind: 'EXPENSE', category: 'food', amountSatang: 25000, date: lastMonth(9), note: 'ข้าวเย็นกับเพื่อน', source: 'CHAT' },
         { id: 92, kind: 'INCOME', category: 'salary', amountSatang: 3000000, date: lastMonth(1), note: 'เงินเดือน', source: 'LIFF' });
+      this.settings = { enabled: true, hour: 9, subscriptions: true, budget: true, daily: false };
       this.accounts = [{ id: 1, name: 'เงินสด', type: 'CASH', openingSatang: 300000, isDefault: false },
         { id: 2, name: 'KBank', type: 'BANK', openingSatang: 2000000, isDefault: true },
         { id: 3, name: 'บัตร KTC', type: 'CARD', openingSatang: 0, isDefault: false }];
@@ -1241,6 +1284,10 @@
     },
     route: function (path, b) {
       var self = this;
+      if (path.indexOf('api/ledger/settings') === 0) {
+        if (b) { this.settings = { enabled: b.enabled, hour: b.hour, subscriptions: b.subscriptions, budget: b.budget, daily: b.daily }; }
+        return this.settings;
+      }
       if (path.indexOf('api/ledger/accounts/archive') === 0) {
         var gone = this.accounts.filter(function (a) { return a.id === b.id; })[0];
         this.accounts = this.accounts.filter(function (a) { return a.id !== b.id; });
@@ -1360,6 +1407,7 @@
   function route(q) {
     var tab = q && q.get('tab');
     if (tab === 'history' && q && q.get('q')) hist.q = q.get('q').slice(0, 60);
+    if (tab === 'settings') { current = 'home'; return openSettings(); }
     if (tab === 'new') { current = 'home'; return openEntryForm(null, q.get('kind') === 'income' ? 'INCOME' : 'EXPENSE'); }
     if (tab === 'budget') {   // rich menu: straight to the budget form, back goes to the home screen
       current = 'home'; chrome(null);

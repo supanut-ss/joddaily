@@ -29,6 +29,7 @@ public class LedgerChatService(AppDbContext db, LedgerService ledger, IOptions<A
             SummaryCommand => await SummaryAsync(user, today),
             UndoLastCommand => await UndoLastAsync(user),
             AccountsCommand => await ListAccountsAsync(user),
+            NotifyCommand c => await NotifyAsync(user, c),
             RecurringCommand c => await SaveRecurringAsync(user, c, today),
             ListRecurringCommand => await ListRecurringAsync(user, today),
             StopRecurringCommand c => await StopRecurringByNameAsync(user, c.Name),
@@ -181,6 +182,38 @@ public class LedgerChatService(AppDbContext db, LedgerService ledger, IOptions<A
         var balances = await ledger.BalancesAsync(user.Id);
         if (balances.Count == 0) return One(LedgerCards.Text("ยังไม่มีบัญชี เพิ่มได้ในแอป (แท็บ บัญชี) แล้วระบุตอนจดได้ เช่น กาแฟ 65 @เงินสด"));
         return One(LedgerCards.AccountList(balances, LiffUrl));
+    }
+
+    // ---- notification settings ----
+
+    private async Task<List<object>> NotifyAsync(AppUser user, NotifyCommand c)
+    {
+        var changed = c.On != null || c.Hour != null;
+        var s = changed ? await ledger.SettingsForUpdateAsync(user.Id) : await ledger.GetSettingsAsync(user.Id);
+        if (c.Hour is { } h) s.NotifyHour = h;
+        if (c.On is { } on)
+        {
+            switch (c.Topic)
+            {
+                case "subscriptions": s.NotifySubscriptions = on; break;
+                case "budget": s.NotifyBudget = on; break;
+                case "daily": s.NotifyDaily = on; break;
+                default: s.NotifyEnabled = on; break;
+            }
+        }
+        if (changed) await db.SaveChangesAsync();
+
+        static string Mark(bool v) => v ? "เปิด" : "ปิด";
+        var text = (changed ? "บันทึกแล้ว\n\n" : "") +
+            "ตั้งค่าแจ้งเตือน\n" +
+            $"แจ้งเตือนทั้งหมด: {Mark(s.NotifyEnabled)}\n" +
+            $"ส่งตอน: {s.NotifyHour:00}:00 น. (ภายในไม่เกินหนึ่งชั่วโมงหลังจากนั้น)\n" +
+            $"• ค่าสมาชิกใกล้ตัด / ทดลองฟรีใกล้หมด: {Mark(s.NotifySubscriptions)}\n" +
+            $"• งบใกล้เต็ม / เกินงบ: {Mark(s.NotifyBudget)}\n" +
+            $"• เตือนให้จดถ้าวันนี้ยังไม่ได้จด: {Mark(s.NotifyDaily)}\n\n" +
+            "เปลี่ยน: แจ้งเตือน 20 · แจ้งเตือน งบ ปิด · แจ้งเตือน จด เปิด · แจ้งเตือน ปิด" +
+            (LiffUrl == null ? "" : "\nหรือตั้งค่าในแอป: " + LiffUrl + "?tab=settings");
+        return One(LedgerCards.Text(text));
     }
 
     // ---- recurring entries ----

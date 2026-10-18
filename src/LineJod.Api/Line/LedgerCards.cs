@@ -249,6 +249,20 @@ public static class LedgerCards
         return Flex("รายการประจำ", Bubble(Col("sm", rows.ToArray()), liffUrl == null ? null : new[] { UriBtn("จัดการในแอป", liffUrl + "?tab=subs") }));
     }
 
+    public static object BudgetAlert(IReadOnlyList<BudgetHit> hits, string? liffUrl)
+    {
+        var over = hits.Any(h => h.Level == 2);
+        var rows = new List<object> { T(over ? "เกินงบประมาณแล้ว" : "งบใกล้เต็ม", over ? Red : Amber, "sm", "bold") };
+        foreach (var h in hits.Take(8))
+        {
+            var detail = h.Level == 2
+                ? $"เกินงบ ฿{Money.Format(h.SpentSatang - h.LimitSatang)} (ใช้ ฿{Money.Format(h.SpentSatang)} จากงบ ฿{Money.Format(h.LimitSatang)})"
+                : $"ใช้ไป {(int)(h.SpentSatang * 100 / h.LimitSatang)}% (฿{Money.Format(h.SpentSatang)} จาก ฿{Money.Format(h.LimitSatang)})";
+            rows.Add(Col("none", T(LedgerCategories.Name(h.Category), Ink, "lg", "bold"), T(detail, h.Level == 2 ? Red : Muted, "sm")));
+        }
+        return Flex(over ? "เกินงบประมาณแล้ว" : "งบใกล้เต็ม", Bubble(Col("sm", rows.ToArray()), liffUrl == null ? null : new[] { UriBtn("ดู/แก้งบ", liffUrl + "?tab=budget") }));
+    }
+
     public static object ExportReady(string label, int count, string url, int minutes)
     {
         var rows = new object[]
@@ -299,6 +313,9 @@ public static class LedgerCards
         "• ประจำ ค่าเช่า 8000 ทุกวันที่ 1\n" +
         "• ประจำ +30000 เงินเดือน ทุกวันที่ 25\n" +
         "• ประจำ ค่าขนม 500 ทุกสัปดาห์ · ประจำ (ดูทั้งหมด) · เลิกประจำ ค่าเช่า\n\n" +
+        "แจ้งเตือน\n" +
+        "• แจ้งเตือน → ดู/ตั้งค่า · แจ้งเตือน ปิด / เปิด\n" +
+        "• แจ้งเตือน 20 → ส่งตอน 20:00 น. · แจ้งเตือน งบ ปิด · แจ้งเตือน จด เปิด\n\n" +
         "ค้นหาและส่งออก\n" +
         "• ค้นหา ค่าไฟ · ค้นหา อาหาร · ค้นหา 1250\n" +
         "• ส่งออก (เดือนนี้) · ส่งออก ปีนี้ · ส่งออก ทั้งหมด → ไฟล์ CSV\n\n" +

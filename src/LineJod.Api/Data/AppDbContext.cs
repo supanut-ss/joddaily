@@ -8,6 +8,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
     public DbSet<LedgerSubscription> LedgerSubscriptions => Set<LedgerSubscription>();
     public DbSet<LedgerBudget> LedgerBudgets => Set<LedgerBudget>();
+    public DbSet<LedgerSettings> LedgerSettings => Set<LedgerSettings>();
+    public DbSet<LedgerBudgetAlert> LedgerBudgetAlerts => Set<LedgerBudgetAlert>();
     public DbSet<LedgerAccount> LedgerAccounts => Set<LedgerAccount>();
     public DbSet<LedgerTransfer> LedgerTransfers => Set<LedgerTransfer>();
     public DbSet<LedgerRecurring> LedgerRecurrings => Set<LedgerRecurring>();
@@ -56,6 +58,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
             e.HasOne<LedgerAccount>().WithMany().HasForeignKey(x => x.AccountId);
             e.HasIndex(x => new { x.Active, x.NextOn });
+        });
+        m.Entity<LedgerSettings>(e =>
+        {
+            e.ToTable("ledger_settings");
+            e.HasKey(x => x.UserId);
+            e.Property(x => x.UserId).ValueGeneratedNever();
+        });
+        m.Entity<LedgerBudgetAlert>(e =>
+        {
+            e.ToTable("ledger_budget_alerts");
+            e.HasKey(x => new { x.UserId, x.Category, x.Month });
         });
         m.Entity<ProcessedEvent>(e =>
         {

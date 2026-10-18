@@ -28,11 +28,11 @@ public class ConfigController(IOptions<AppSettings> options, LedgerService ledge
         var today = BangkokTime.Today;
         var recorded = await ledger.RecordDueSubscriptionsAsync(today);   // first, so a charge made today is never announced as "tomorrow"
         var recurring = await ledger.RecordDueRecurringAsync(today);
-        var notices = await notifier.RunAsync(today);
+        var notices = await notifier.RunAsync(today, BangkokTime.Now.Hour);   // each user gets their pushes in the first run at or after their hour
 
         var cutoff = DateTime.UtcNow.AddDays(-7);                          // housekeeping: webhook idempotency rows
         await db.ProcessedEvents.Where(e => e.ProcessedAt < cutoff).ExecuteDeleteAsync();
-        return Ok(new { subscriptionCharges = recorded, recurringEntries = recurring, notices.ChargeNotices, notices.TrialNotices });
+        return Ok(new { subscriptionCharges = recorded, recurringEntries = recurring, notices.ChargeNotices, notices.TrialNotices, notices.BudgetAlerts, notices.Nudges });
     }
 
     /// <summary>One-off setup: installs the rich menu as the default menu (run again after changing the image or the tiles).</summary>

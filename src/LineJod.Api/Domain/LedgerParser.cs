@@ -8,6 +8,8 @@ public abstract record ChatCommand;
 /// <summary><see cref="Account"/> is the name after "@" (กาแฟ 65 @เงินสด); null = the default account.</summary>
 public record EntryCommand(List<ParsedItem> Items, DateOnly Date, string? Account = null) : ChatCommand;
 public record AccountsCommand : ChatCommand;
+/// <summary>Topic is "subscriptions", "budget", "daily" or null (everything); On / Hour null = not changed. All null = just show the settings.</summary>
+public record NotifyCommand(string? Topic, bool? On, int? Hour) : ChatCommand;
 /// <summary>Frequency WEEKLY (Day = ISO weekday 1-7), MONTHLY (Day = day of month) or YEARLY (Day + Month).</summary>
 public record RecurringCommand(ParsedItem Item, string Frequency, int Day, int? Month, DateOnly? EndOn, string? Account) : ChatCommand;
 public record ListRecurringCommand : ChatCommand;
@@ -54,6 +56,7 @@ public static class LedgerParser
             case "ส่งออก" or "export" when tokens.Count == 2 && tokens[1] is "ทั้งหมด": return new ExportCommand("all");
             case "ส่งออก": return new InvalidCommand("พิมพ์ ส่งออก (เดือนนี้) · ส่งออก ปีนี้ · ส่งออก ทั้งหมด");
             case "บัญชี" when tokens.Count == 1: return new AccountsCommand();
+            case "แจ้งเตือน": return ParseNotify(tokens.Skip(1).ToList());
             case "ประจำ" when tokens.Count == 1: return new ListRecurringCommand();
             case "ประจำ": return ParseRecurring(tokens.Skip(1).ToList(), today);
             case "เลิกประจำ" when tokens.Count >= 2: return new StopRecurringCommand(string.Join(' ', tokens.Skip(1)));
@@ -119,6 +122,28 @@ public static class LedgerParser
             parsed.Add(new ParsedItem(kind, satang, note.Length == 0 ? null : note, GuessCategory(note, kind)));
         }
         return parsed;
+    }
+
+    // ---- notification settings ----
+
+    private const string NotifyHint = "ตัวอย่าง: แจ้งเตือน (ดูค่าที่ตั้งไว้) · แจ้งเตือน ปิด · แจ้งเตือน 20 (ส่งตอน 20:00 น.) · แจ้งเตือน งบ ปิด · แจ้งเตือน สมาชิก ปิด · แจ้งเตือน จด เปิด";
+    private static readonly Regex HourRx = new(@"^(?<h>\d{1,2})(?::00|\.00)?(?:น\.?)?$", RegexOptions.Compiled);
+
+    private static ChatCommand ParseNotify(List<string> t)
+    {
+        if (t.Count == 0) return new NotifyCommand(null, null, null);
+        string? topic = null; bool? on = null; int? hour = null;
+        foreach (var w in t)
+        {
+            if (w is "สมาชิก" or "งบ" or "จด") topic = w;
+            else if (w == "เปิด") on = true;
+            else if (w == "ปิด") on = false;
+            else if (HourRx.Match(w) is { Success: true } m && int.Parse(m.Groups["h"].Value) <= 23) hour = int.Parse(m.Groups["h"].Value);
+            else return new InvalidCommand(NotifyHint);
+        }
+        if (topic != null && on == null) return new InvalidCommand(NotifyHint);      // a topic needs เปิด or ปิด
+        if (topic != null && hour != null) return new InvalidCommand(NotifyHint);    // the hour is one setting for everything
+        return new NotifyCommand(topic switch { "สมาชิก" => "subscriptions", "งบ" => "budget", "จด" => "daily", _ => null }, on, hour);
     }
 
     // ---- recurring entries ----

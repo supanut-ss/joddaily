@@ -310,4 +310,22 @@ public class LedgerService(AppDbContext db)
         await db.SaveChangesAsync();
         return created;
     }
+
+    // ---- notification settings ----
+
+    public static bool ValidHour(int hour) => hour is >= 0 and <= 23;
+
+    /// <summary>The user's settings, or the defaults when they never changed any (nothing is stored then).</summary>
+    public async Task<LedgerSettings> GetSettingsAsync(long userId) =>
+        await db.LedgerSettings.AsNoTracking().FirstOrDefaultAsync(s => s.UserId == userId) ?? new LedgerSettings { UserId = userId };
+
+    /// <summary>The stored settings row, created (tracked, with defaults) when missing. The caller changes it and saves.</summary>
+    public async Task<LedgerSettings> SettingsForUpdateAsync(long userId)
+    {
+        var s = await db.LedgerSettings.FirstOrDefaultAsync(x => x.UserId == userId);
+        if (s != null) return s;
+        s = new LedgerSettings { UserId = userId };
+        db.LedgerSettings.Add(s);
+        return s;
+    }
 }

@@ -229,7 +229,7 @@ public class NotifierTests : DbTestBase
     {
         _me = AddUser("ฉัน");
         var line = new LineClient(new HttpClient(_http), ChatTestBaseOptions, NullLogger<LineClient>.Instance);
-        _notifier = new LedgerNotifier(Db, line, NullLogger<LedgerNotifier>.Instance);
+        _notifier = new LedgerNotifier(Db, line, ChatTestBaseOptions, NullLogger<LedgerNotifier>.Instance);
     }
 
     private static readonly IOptions<AppSettings> ChatTestBaseOptions = Microsoft.Extensions.Options.Options.Create(new AppSettings());
