@@ -7,6 +7,10 @@
     <AssemblyName>LineJod.Api</AssemblyName>
     <RootNamespace>LineJod</RootNamespace>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- the shared Plesk app pool is 32-bit: out-of-process behind IIS, and a small memory footprint -->
+    <AspNetCoreHostingModel>OutOfProcess</AspNetCoreHostingModel>
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
   </PropertyGroup>
 
   <ItemGroup>

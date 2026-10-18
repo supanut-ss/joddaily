@@ -3,3 +3,4 @@ obj/
 .vs/
 .claude/
 appsettings.Production.json
+publish/

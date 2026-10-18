@@ -27,6 +27,11 @@ builder.Services.AddScoped<RichMenuService>();
 
 var app = builder.Build();
 
+// Only needed when the app is hosted in a sub-folder of a site (App:PathBase, e.g. "/linejod"); empty on a site of its own.
+var pathBase = (builder.Configuration["App:PathBase"] ?? "").Trim().Trim('/');
+if (pathBase.Length > 0) app.UsePathBase("/" + pathBase);
+app.UseRouting();   // explicit, after UsePathBase: the implicit one runs first and would match endpoints on the unstripped path
+
 app.UseDefaultFiles();   // "/" serves wwwroot/index.html (the LIFF page)
 app.UseStaticFiles();
 app.MapControllers();

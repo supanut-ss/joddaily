@@ -44,6 +44,10 @@ Pushes (job; each user on their own hour and switches): **the day before** a sub
 
 Reading slips (images), transfers by chat, reconciling an account balance with the bank.
 
+## Hosting
+
+Runs on the same Plesk host as Pay_Yet but as its own site (a subdomain with its own folder), its own database and its own LINE channels. Build the package with `tools/publish.ps1` (win-x86 self-contained, nothing is uploaded) and follow [docs/DEPLOY.md](docs/DEPLOY.md). `App:PathBase` exists for hosts that allow a sub-folder, but Pay_Yet's experience says this IIS does not.
+
 ## Setup
 
 1. Create a DB and import [db/schema.sql](db/schema.sql) (an older database: also run the files in [db/migrations](db/migrations) in date order, e.g. `2026-10-19-accounts-recurring.sql`, `2026-10-20-notify-settings.sql`); set `Db:ServerVersion` if it is not MariaDB 11.8.

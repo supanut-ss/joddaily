@@ -179,7 +179,14 @@
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script>
 (function () {
-  var API = '';  // the page is served by the API itself (wwwroot), so calls are same-origin
+  // The page is served by the API itself, so the API is next to it: the folder of the page URL, wherever the app is mounted
+  // ("/", "/linejod/", also "/linejod" without the slash and "/linejod/index.html").
+  var API = (function () {
+    var p = location.pathname;
+    if (p.charAt(p.length - 1) === '/') return p;
+    var last = p.slice(p.lastIndexOf('/') + 1);
+    return last.indexOf('.') >= 0 ? p.slice(0, p.lastIndexOf('/') + 1) : p + '/';
+  })();
   var DEMO = /[?&]demo=1\b/.test(location.search); // local preview with sample data, no LINE login
   var app = document.getElementById('app');
   var idToken = null;

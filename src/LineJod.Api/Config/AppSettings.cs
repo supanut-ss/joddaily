@@ -28,5 +28,6 @@ public class JobsSection
 
 public class AppSection
 {
-    public string PublicBaseUrl { get; set; } = "";   // https://<this host>, used in links sent to users (CSV download)
+    public string PublicBaseUrl { get; set; } = "";   // https://<this host>[/path base], used in links sent to users (CSV download)
+    public string PathBase { get; set; } = "";         // "" on a site of its own (a subdomain); "/linejod" only when the app runs in a sub-folder of a site
 }
