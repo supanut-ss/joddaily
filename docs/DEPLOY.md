@@ -5,11 +5,11 @@ Two separate deployments, like Pay_Yet's:
 | Part | What | Where (planned) |
 |---|---|---|
 | **API** | the ASP.NET Core app: LINE webhook, the LIFF page's API, the hourly job, CSV download. **No frontend files inside.** | the same site as Pay_Yet's API (`api.drivetodev.online`), in its own folder `linejod` as a sub-application: `https://api.drivetodev.online/linejod` |
-| **Frontend** | the LIFF page (`web/`, static: `index.html`, `config.js`, icons) | a static site of its own (a subdomain, e.g. `linejod.drivetodev.online`, folder of the same name), like Pay_Yet's `payyet.drivetodev.online` |
+| **Frontend** | the LIFF page (`web/`, static: `index.html`, `config.js`, icons) | a static site of its own: **`https://linejod.drivetodev.online`** (Plesk subdomain `linejod` of `drivetodev.online`, FTP folder `linejod.drivetodev.online`), like Pay_Yet's `payyet.drivetodev.online` |
 
 LineJod shares nothing with Pay_Yet except the host: its own folder, database, DB user and LINE channels. The browser calls the API from the frontend site cross-origin; the API allows that one origin (`App:WebBaseUrl`).
 
-Below: `<api>` = `https://api.drivetodev.online/linejod`, `<web>` = the frontend's URL, e.g. `https://linejod.drivetodev.online`.
+Below: `<api>` = `https://api.drivetodev.online/linejod`, `<web>` = `https://linejod.drivetodev.online`.
 
 ## To confirm first: a sub-application under the API site
 
@@ -20,7 +20,7 @@ Everything about the host below comes from Pay_Yet's deployment notes; **the sub
 
 ## One-time setup
 
-1. **Frontend site:** Plesk → add a subdomain (e.g. `linejod`), no PHP/ASP.NET needed, **SSL/TLS → Let's Encrypt** and "Redirect from HTTP to HTTPS".
+1. **Frontend site:** Plesk → Websites & Domains → add the subdomain `linejod` to `drivetodev.online` (document root = its own folder `linejod.drivetodev.online`), no PHP/ASP.NET needed, **SSL/TLS → Let's Encrypt** and "Redirect from HTTP to HTTPS".
 2. **API:** create the folder `linejod` inside the API site's folder and make it an application (see above). The API site already has its certificate.
 3. **Database:** Plesk → Databases → add a database (e.g. `thaipes_linejod`) with **its own user**. Import [../db/schema.sql](../db/schema.sql) with phpMyAdmin. (A database made from an older schema.sql: run the files in [../db/migrations](../db/migrations) in date order instead.)
 4. **LINE Developers** (separate from Pay_Yet's channels, so the two bots never mix):
@@ -37,7 +37,7 @@ Everything about the host below comes from Pay_Yet's deployment notes; **the sub
 | `Jobs:Key` | a long random string (it guards `/jobs/*`) |
 | `App:PublicBaseUrl` | `<api>` (no trailing slash; used in CSV download links) |
 | `App:PathBase` | `/linejod` for the sub-application; empty if the API has a site of its own |
-| `App:WebBaseUrl` | `<web>`: the only origin allowed to call the API from a browser (several: comma-separated) |
+| `App:WebBaseUrl` | `https://linejod.drivetodev.online`: the only origin allowed to call the API from a browser (several: comma-separated; no path, no trailing slash needed) |
 
 ## Build and upload
 
@@ -57,10 +57,10 @@ Everything about the host below comes from Pay_Yet's deployment notes; **the sub
 **Frontend**
 
 ```powershell
-.\tools\publish-web.ps1 -ApiUrl <api>      # copies web\ into .\publish-web and writes config.js with the API address
+.\tools\publish-web.ps1                  # copies web\ into .\publish-web and writes config.js with the API address (default https://api.drivetodev.online/linejod/)
 ```
 
-Upload the contents of `publish-web\` to the frontend site's folder. To point at another API later, edit only `config.js` on the server.
+Upload the contents of `publish-web\` to the folder `linejod.drivetodev.online` (FTP root of the subscription). To point at another API later (say the fallback subdomain), run it with `-ApiUrl <url>` or edit only `config.js` on the server.
 
 There is no upload script for LineJod yet (Pay_Yet's uploads by FTP with a guard that refuses any folder but its own). Adding one is small once the folders exist.
 

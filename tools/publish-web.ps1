@@ -2,14 +2,15 @@
     Builds the upload package of the frontend (the LIFF page) into .\publish-web. It is a static site: nothing is built, the files of .\web
     are copied and config.js is written with the address of the API. Nothing is uploaded.
 
-      .\tools\publish-web.ps1 -ApiUrl https://api.drivetodev.online/linejod/
+      .\tools\publish-web.ps1                                        # API at https://api.drivetodev.online/linejod/
+      .\tools\publish-web.ps1 -ApiUrl https://other.example/linejod/ # another API address
 
-    Upload the contents of .\publish-web to the folder of the frontend site (see docs/DEPLOY.md).
+    Upload the contents of .\publish-web to the folder of the frontend site, https://linejod.drivetodev.online (see docs/DEPLOY.md).
 #>
 [CmdletBinding()]
 param(
     # Where the API is, including the path when it runs in a sub-application of another site.
-    [Parameter(Mandatory = $true)] [ValidatePattern('^https?://')] [string]$ApiUrl
+    [ValidatePattern('^https?://')] [string]$ApiUrl = "https://api.drivetodev.online/linejod/"
 )
 
 $ErrorActionPreference = "Stop"
