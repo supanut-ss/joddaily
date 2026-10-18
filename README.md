@@ -46,7 +46,7 @@ Reading slips (images), transfers by chat, reconciling an account balance with t
 
 ## Hosting
 
-Same Plesk host as Pay_Yet, nothing shared but the host. The API goes next to Pay_Yet's API in its own folder (a sub-application, `https://api.drivetodev.online/linejod`, to be confirmed on the host; a subdomain is the fallback), the frontend on a static site of its own (`https://linejod.drivetodev.online`), each with its own package script (`tools/publish.ps1`, `tools/publish-web.ps1`; nothing is uploaded). Details, URLs and troubleshooting: [docs/DEPLOY.md](docs/DEPLOY.md).
+Same Plesk host as Pay_Yet, nothing shared but the host. The API goes next to Pay_Yet's API in its own folder (a sub-application, `https://api.drivetodev.online/linejod`, to be confirmed on the host; a subdomain is the fallback), the frontend on a static site of its own (`https://linejod.drivetodev.online`), each with its own package script (`tools/publish.ps1`, `tools/publish-web.ps1`; nothing is uploaded) and deploy scripts like Pay_Yet's (`deploy-api.ps1`, `deploy-web.ps1`, `deploy-all.ps1`: FTP upload with guards and health checks). Details, URLs and troubleshooting: [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## Setup
 

@@ -5,3 +5,10 @@ obj/
 appsettings.Production.json
 publish/
 publish-web/
+
+# Deploy scripts: credentials, local staging, caches
+deploy.credentials.ps1
+.deploy-cache/
+deploy/app/
+deploy/offline/
+deploy/web/

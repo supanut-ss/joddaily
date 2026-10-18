@@ -62,7 +62,31 @@ Everything about the host below comes from Pay_Yet's deployment notes; **the sub
 
 Upload the contents of `publish-web\` to the folder `linejod.drivetodev.online` (FTP root of the subscription). To point at another API later (say the fallback subdomain), run it with `-ApiUrl <url>` or edit only `config.js` on the server.
 
-There is no upload script for LineJod yet (Pay_Yet's uploads by FTP with a guard that refuses any folder but its own). Adding one is small once the folders exist.
+Or let the scripts do all of this (next section).
+
+## Deploy with the scripts (same way as Pay_Yet)
+
+```powershell
+.\deploy-api.ps1     # API only: tests, publish, offline, upload, online, health checks
+.\deploy-web.ps1     # frontend only (no downtime for the API)
+.\deploy-all.ps1     # API first, then the frontend
+```
+
+Once: copy `deploy.credentials.example.ps1` to `deploy.credentials.ps1` (git-ignored) and fill in the FTP login of the subscription (the same three values Pay_Yet's `deploy.credentials.ps1` has), and copy `deploy\appsettings.Production.example.json` to `deploy\appsettings.Production.json` and fill it in. The folders from the setup above must exist (the API one made an IIS application first).
+
+`deploy-*.ps1` → `deploy-single-host.core.ps1` (the workflow) → `upload-ftp.ps1` (FTP uploader, shared with Pay_Yet's; skips files already verified on the server, prunes stale files in the root of the target folder, leaves sub-folders such as `logs` alone). Never run two deploys at once: an interrupted API deploy leaves the site in maintenance mode (`app_offline.htm`); rerun to finish.
+
+What it checks and refuses:
+
+- **Folders are pinned.** The API goes to `api.drivetodev.online/linejod` (or `linejod-api.drivetodev.online`, the fallback), the frontend to `linejod.drivetodev.online`. Any other `RemotePath`, above all Pay_Yet's `api.drivetodev.online` itself, is refused, because the upload prunes files of the target folder.
+- **Config must fit the deployment**: no `CHANGE_ME` values, `App:PublicBaseUrl`, `App:WebBaseUrl` and `App:PathBase` agree with the target URLs.
+- The remote folder must already exist (the script does not create it, so it cannot make a plain folder that Pay_Yet's app would answer instead).
+- After the upload: `/health` is 200, `/` is answered by LineJod, `/api/config` returns your `Liff:Id`, the webhook and `/jobs/daily` and the ledger API refuse anonymous calls (the ledger API with a JSON error body, not Plesk's error page), and the API allows the frontend's origin. If a check fails the app is put back into maintenance mode. The frontend deploy checks the page, `config.js` and that CORS answer.
+- Nothing secret stays in the local staging folder (`deploy\app`) after a run.
+
+Options: `-SkipTests`, `-StdoutLog` (on by default in the wrappers: ANCM log in `logs\` on the server; drop it once stable), `-FrameworkDependent`, `-ConfigPath`. Dry run (connects read-only, changes nothing remote): `$env:LINEJOD_DEPLOY_DRY_RUN = "1"` before running.
+
+Tested against a local FTP server: the guards, config checks, missing-folder refusal, a real frontend deploy (upload, prune, manifest skip, page / `config.js` / CORS checks), a real API deploy up to the health check (offline page, 340 files, config uploaded, `logs` kept, Pay_Yet's files untouched, maintenance mode restored when the check failed, staging secrets removed) and the dry run. **Not tested:** the success path of the API checks (they need a reachable database), and anything specific to the Plesk host.
 
 ## After it is up
 
