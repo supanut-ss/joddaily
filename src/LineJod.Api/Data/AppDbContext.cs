@@ -8,6 +8,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
     public DbSet<LedgerSubscription> LedgerSubscriptions => Set<LedgerSubscription>();
     public DbSet<LedgerBudget> LedgerBudgets => Set<LedgerBudget>();
+    public DbSet<LedgerAccount> LedgerAccounts => Set<LedgerAccount>();
+    public DbSet<LedgerTransfer> LedgerTransfers => Set<LedgerTransfer>();
+    public DbSet<LedgerRecurring> LedgerRecurrings => Set<LedgerRecurring>();
     public DbSet<ProcessedEvent> ProcessedEvents => Set<ProcessedEvent>();
 
     protected override void OnModelCreating(ModelBuilder m)
@@ -24,12 +27,35 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
             e.HasIndex(x => new { x.UserId, x.OccurredOn });
             e.HasIndex(x => new { x.SubscriptionId, x.OccurredOn }).IsUnique();   // one charge per subscription per day (job re-runs are safe)
+            e.HasIndex(x => new { x.RecurringId, x.OccurredOn }).IsUnique();      // same for recurring entries
+            e.HasOne<LedgerAccount>().WithMany().HasForeignKey(x => x.AccountId);
         });
         m.Entity<LedgerSubscription>(e =>
         {
             e.ToTable("ledger_subscriptions");
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
             e.HasIndex(x => new { x.Active, x.NextChargeOn });
+        });
+        m.Entity<LedgerAccount>(e =>
+        {
+            e.ToTable("ledger_accounts");
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
+            e.HasIndex(x => x.UserId);
+        });
+        m.Entity<LedgerTransfer>(e =>
+        {
+            e.ToTable("ledger_transfers");
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId);
+            e.HasOne<LedgerAccount>().WithMany().HasForeignKey(x => x.FromAccountId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<LedgerAccount>().WithMany().HasForeignKey(x => x.ToAccountId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.UserId, x.OccurredOn });
+        });
+        m.Entity<LedgerRecurring>(e =>
+        {
+            e.ToTable("ledger_recurring");
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
+            e.HasOne<LedgerAccount>().WithMany().HasForeignKey(x => x.AccountId);
+            e.HasIndex(x => new { x.Active, x.NextOn });
         });
         m.Entity<ProcessedEvent>(e =>
         {

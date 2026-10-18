@@ -28,6 +28,10 @@ public class LedgerChatService(AppDbContext db, LedgerService ledger, IOptions<A
             StopSubscriptionCommand c => await StopByNameAsync(user, c.Name),
             SummaryCommand => await SummaryAsync(user, today),
             UndoLastCommand => await UndoLastAsync(user),
+            AccountsCommand => await ListAccountsAsync(user),
+            RecurringCommand c => await SaveRecurringAsync(user, c, today),
+            ListRecurringCommand => await ListRecurringAsync(user, today),
+            StopRecurringCommand c => await StopRecurringByNameAsync(user, c.Name),
             ExportCommand c => await ExportAsync(user, c.Scope, today),
             SearchCommand c => await SearchAsync(user, c.Text, today),
             HelpCommand => One(LedgerCards.Text(LedgerCards.HelpText)),
@@ -46,6 +50,7 @@ public class LedgerChatService(AppDbContext db, LedgerService ledger, IOptions<A
             case "cat" when p.Length == 2 && long.TryParse(p[1], out var id): return await AskCategoryAsync(user, id);
             case "setcat" when p.Length == 3 && long.TryParse(p[1], out var id): return await SetCategoryAsync(user, id, p[2]);
             case "stop" when p.Length == 2 && long.TryParse(p[1], out var id): return await StopByIdAsync(user, id);
+            case "stoprec" when p.Length == 2 && long.TryParse(p[1], out var id): return await StopRecurringByIdAsync(user, id);
             case "keep": return One(LedgerCards.Text("รับทราบ จะตัดเงินตามปกติ ถ้าเปลี่ยนใจพิมพ์ เลิก ตามด้วยชื่อบริการได้เลย"));
             default: return new List<object>();
         }
@@ -58,14 +63,17 @@ public class LedgerChatService(AppDbContext db, LedgerService ledger, IOptions<A
         if (c.Items.Count > MaxItemsPerMessage) return One(LedgerCards.Text($"จดได้ครั้งละไม่เกิน {MaxItemsPerMessage} รายการ"));
         if (c.Date > today.AddDays(1)) return One(LedgerCards.Text("วันที่อยู่ในอนาคต ตรวจวันที่อีกครั้ง"));
 
+        var (account, error) = await ResolveAccountAsync(user, c.Account);
+        if (error != null) return One(LedgerCards.Text(error));
+
         var rows = c.Items.Select(i => new LedgerEntry
         {
             UserId = user.Id, Kind = i.Kind, Category = i.Category, AmountSatang = i.AmountSatang, Note = i.Note,
-            OccurredOn = c.Date, Source = "CHAT", CreatedAt = DateTime.UtcNow
+            OccurredOn = c.Date, Source = "CHAT", AccountId = account?.Id, CreatedAt = DateTime.UtcNow
         }).ToList();
         db.LedgerEntries.AddRange(rows);
         await db.SaveChangesAsync();
-        return One(LedgerCards.EntrySaved(rows, today));
+        return One(LedgerCards.EntrySaved(rows, today, account?.Name));
     }
 
     private async Task<List<object>> UndoAsync(AppUser user, string ids)
@@ -157,6 +165,79 @@ public class LedgerChatService(AppDbContext db, LedgerService ledger, IOptions<A
         s.Active = false;
         await db.SaveChangesAsync();
         return One(LedgerCards.Text($"หยุด {s.Name} แล้ว ประวัติที่จดไว้ยังอยู่ครบ"));
+    }
+
+    // ---- accounts ----
+
+    /// <summary>The account named with "@", else the user's default account (null when there is none).</summary>
+    private async Task<(LedgerAccount? Account, string? Error)> ResolveAccountAsync(AppUser user, string? name)
+    {
+        if (name != null) return await ledger.FindAccountByNameAsync(user.Id, name);
+        return (await db.LedgerAccounts.FirstOrDefaultAsync(a => a.UserId == user.Id && a.Active && a.IsDefault), null);
+    }
+
+    private async Task<List<object>> ListAccountsAsync(AppUser user)
+    {
+        var balances = await ledger.BalancesAsync(user.Id);
+        if (balances.Count == 0) return One(LedgerCards.Text("ยังไม่มีบัญชี เพิ่มได้ในแอป (แท็บ บัญชี) แล้วระบุตอนจดได้ เช่น กาแฟ 65 @เงินสด"));
+        return One(LedgerCards.AccountList(balances, LiffUrl));
+    }
+
+    // ---- recurring entries ----
+
+    private async Task<List<object>> SaveRecurringAsync(AppUser user, RecurringCommand c, DateOnly today)
+    {
+        var (account, error) = await ResolveAccountAsync(user, c.Account);
+        if (error != null) return One(LedgerCards.Text(error));
+        if (c.EndOn is { } end && end < today) return One(LedgerCards.Text("วันที่สิ้นสุดต้องไม่ผ่านมาแล้ว"));
+
+        var r = c.Item.Note == null ? null
+            : await db.LedgerRecurrings.FirstOrDefaultAsync(x => x.UserId == user.Id && x.Active && x.Note == c.Item.Note);
+        if (r == null)
+        {
+            r = new LedgerRecurring { UserId = user.Id, CreatedAt = DateTime.UtcNow };
+            db.LedgerRecurrings.Add(r);
+        }
+        r.Kind = c.Item.Kind;
+        r.Category = c.Item.Category;
+        r.AmountSatang = c.Item.AmountSatang;
+        r.Note = c.Item.Note;
+        r.AccountId = account?.Id;
+        r.Frequency = c.Frequency;
+        r.Day = c.Day;
+        r.Month = c.Month;
+        r.EndOn = c.EndOn;
+        r.NextOn = LedgerService.NextOccurrence(c.Frequency, c.Day, c.Month, today);
+        await db.SaveChangesAsync();
+        return One(LedgerCards.RecurringSaved(r, account?.Name, today));
+    }
+
+    private async Task<List<object>> ListRecurringAsync(AppUser user, DateOnly today)
+    {
+        var list = await db.LedgerRecurrings.Where(r => r.UserId == user.Id && r.Active).ToListAsync();
+        if (list.Count == 0) return One(LedgerCards.Text("ยังไม่มีรายการประจำ เพิ่มได้เลย เช่น\nประจำ ค่าเช่า 8000 ทุกวันที่ 1\nประจำ +30000 เงินเดือน ทุกวันที่ 25"));
+        return One(LedgerCards.RecurringList(list, today, LiffUrl));
+    }
+
+    private async Task<List<object>> StopRecurringByNameAsync(AppUser user, string name)
+    {
+        var list = await db.LedgerRecurrings.Where(r => r.UserId == user.Id && r.Active).ToListAsync();
+        var exact = list.Where(r => string.Equals(r.Note, name, StringComparison.OrdinalIgnoreCase)).ToList();
+        var found = exact.Count > 0 ? exact : list.Where(r => r.Note != null && r.Note.Contains(name, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (found.Count == 0) return One(LedgerCards.Text($"ไม่พบรายการประจำชื่อ \"{name}\" พิมพ์ ประจำ เพื่อดูรายการ"));
+        if (found.Count > 1) return One(LedgerCards.TextWithChoices("หมายถึงอันไหน?", found.Take(13).Select(r => ("เลิก " + r.Note, "stoprec:" + r.Id))));
+        return await StopRecurringByIdAsync(user, found[0].Id);
+    }
+
+    private async Task<List<object>> StopRecurringByIdAsync(AppUser user, long id)
+    {
+        var r = await db.LedgerRecurrings.FirstOrDefaultAsync(x => x.Id == id && x.UserId == user.Id);
+        if (r == null) return One(LedgerCards.Text("ไม่พบรายการประจำนี้"));
+        var label = r.Note ?? LedgerCategories.Name(r.Category);
+        if (!r.Active) return One(LedgerCards.Text($"{label} หยุดไปแล้ว"));
+        r.Active = false;
+        await db.SaveChangesAsync();
+        return One(LedgerCards.Text($"หยุด {label} แล้ว รายการที่ลงไปแล้วยังอยู่ครบ"));
     }
 
     // ---- search / export ----

@@ -74,7 +74,7 @@ public static class LedgerCards
     // ---- cards ----
 
     /// <summary>"บันทึกรายจ่ายแล้ว" with one row per item; undo (and change category for a single item) buttons.</summary>
-    public static object EntrySaved(IReadOnlyList<LedgerEntry> entries, DateOnly today)
+    public static object EntrySaved(IReadOnlyList<LedgerEntry> entries, DateOnly today, string? accountName = null)
     {
         var allIncome = entries.All(e => e.Kind == "INCOME");
         var allExpense = entries.All(e => e.Kind == "EXPENSE");
@@ -100,7 +100,7 @@ public static class LedgerCards
             rows.Add(Sep());
             rows.Add(Row(T("รวม", Muted, "sm"), T((net >= 0 ? "+" : "−") + "฿" + Money.Format(Math.Abs(net)), net >= 0 ? Green : Ink, "md", "bold", align: "end")));
         }
-        rows.Add(T(DayLabel(entries[0].OccurredOn, today), Muted, "xs"));
+        rows.Add(T(DayLabel(entries[0].OccurredOn, today) + (accountName == null ? "" : " · บัญชี " + accountName), Muted, "xs"));
 
         var ids = string.Join(',', entries.Select(e => e.Id));
         var footer = new List<object>();
@@ -194,6 +194,61 @@ public static class LedgerCards
         return Flex($"ทดลองฟรี {s.Name} ใกล้หมด", Bubble(Col("sm", rows), new[] { PostbackBtn("ใช้ต่อ", "keep:" + s.Id, primary: true), PostbackBtn("เลิกใช้ก่อนโดนตัด", "stop:" + s.Id) }));
     }
 
+    private static readonly string[] WeekdayNames = { "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์" };
+
+    public static string FrequencyLabel(LedgerRecurring r) => r.Frequency switch
+    {
+        "WEEKLY" => "ทุกวัน" + WeekdayNames[Math.Clamp(r.Day, 1, 7) - 1],
+        "YEARLY" => $"ทุกปี {r.Day} {ThaiMonth(r.Month ?? 1)}",
+        _ => $"ทุกวันที่ {r.Day}"
+    };
+
+    private static string TypeLabel(string type) => type switch
+    {
+        "CASH" => "เงินสด", "BANK" => "ธนาคาร", "CARD" => "บัตรเครดิต", "EWALLET" => "e-wallet", _ => "อื่นๆ"
+    };
+
+    public static object AccountList(IReadOnlyList<AccountBalance> balances, string? liffUrl)
+    {
+        var total = balances.Sum(b => b.BalanceSatang);
+        var rows = new List<object>
+        {
+            T("ยอดรวมทุกบัญชี", Muted, "sm", "bold"),
+            T((total < 0 ? "−" : "") + "฿" + Money.Format(Math.Abs(total)), total < 0 ? Red : Ink, "3xl", "bold"),
+            Sep()
+        };
+        foreach (var b in balances.Take(10))
+            rows.Add(Row(
+                Col("none", T(b.Account.Name + (b.Account.IsDefault ? " ★" : ""), Ink, "md", "bold"), T(TypeLabel(b.Account.Type), Muted, "xs")),
+                T((b.BalanceSatang < 0 ? "−" : "") + "฿" + Money.Format(Math.Abs(b.BalanceSatang)), b.BalanceSatang < 0 ? Red : Ink, "md", "bold", flex: 0, align: "end")));
+        rows.Add(T("★ = บัญชีที่ใช้เมื่อไม่ระบุ · ระบุได้ เช่น กาแฟ 65 @" + (balances.FirstOrDefault()?.Account.Name ?? "เงินสด"), Muted, "xs"));
+        return Flex("ยอดบัญชี", Bubble(Col("sm", rows.ToArray()), liffUrl == null ? null : new[] { UriBtn("จัดการบัญชี / โอน", liffUrl + "?tab=accounts") }));
+    }
+
+    public static object RecurringSaved(LedgerRecurring r, string? accountName, DateOnly today)
+    {
+        var rows = new List<object>
+        {
+            T(r.Kind == "INCOME" ? "เพิ่มรายรับประจำแล้ว" : "เพิ่มรายจ่ายประจำแล้ว", Muted, "sm", "bold"),
+            T(r.Note ?? LedgerCategories.Name(r.Category), Ink, "xl", "bold"),
+            T(Signed(r.Kind, r.AmountSatang), r.Kind == "INCOME" ? Green : Ink, "xxl", "bold"),
+            T(FrequencyLabel(r) + (accountName == null ? "" : " · บัญชี " + accountName), Muted, "sm"),
+            T($"ลงรายการให้เองครั้งแรก {DayLabel(r.NextOn, today)}" + (r.EndOn is { } e ? $" · สิ้นสุด {e.Day} {ThaiMonth(e.Month)}" : ""), Green, "xs")
+        };
+        return Flex("เพิ่มรายการประจำ " + (r.Note ?? ""), Bubble(Col("sm", rows.ToArray()), new[] { PostbackBtn("เลิกรายการนี้", "stoprec:" + r.Id) }));
+    }
+
+    public static object RecurringList(IReadOnlyList<LedgerRecurring> list, DateOnly today, string? liffUrl)
+    {
+        var rows = new List<object> { T("รายการประจำ", Muted, "sm", "bold"), Sep() };
+        foreach (var r in list.OrderBy(r => r.NextOn).Take(10))
+            rows.Add(Row(
+                Col("none", T(r.Note ?? LedgerCategories.Name(r.Category), Ink, "md", "bold"), T($"{FrequencyLabel(r)} · ถัดไป {DayLabel(r.NextOn, today)}", Muted, "xs")),
+                T(Signed(r.Kind, r.AmountSatang), r.Kind == "INCOME" ? Green : Ink, "md", "bold", flex: 0, align: "end")));
+        if (list.Count > 10) rows.Add(T($"และอีก {list.Count - 10} รายการ", Muted, "xs"));
+        return Flex("รายการประจำ", Bubble(Col("sm", rows.ToArray()), liffUrl == null ? null : new[] { UriBtn("จัดการในแอป", liffUrl + "?tab=subs") }));
+    }
+
     public static object ExportReady(string label, int count, string url, int minutes)
     {
         var rows = new object[]
@@ -238,6 +293,12 @@ public static class LedgerCards
         "• สมาชิก Adobe 7600 รายปี 12/3\n" +
         "• ทดลอง Canva 300 ถึง 24/10\n" +
         "• สมาชิก (ดูทั้งหมด) · เลิก Spotify\n\n" +
+        "บัญชีและรายการประจำ\n" +
+        "• กาแฟ 65 @เงินสด → ระบุบัญชี (ไม่ระบุ = บัญชีหลัก)\n" +
+        "• บัญชี → ดูยอดทุกบัญชี\n" +
+        "• ประจำ ค่าเช่า 8000 ทุกวันที่ 1\n" +
+        "• ประจำ +30000 เงินเดือน ทุกวันที่ 25\n" +
+        "• ประจำ ค่าขนม 500 ทุกสัปดาห์ · ประจำ (ดูทั้งหมด) · เลิกประจำ ค่าเช่า\n\n" +
         "ค้นหาและส่งออก\n" +
         "• ค้นหา ค่าไฟ · ค้นหา อาหาร · ค้นหา 1250\n" +
         "• ส่งออก (เดือนนี้) · ส่งออก ปีนี้ · ส่งออก ทั้งหมด → ไฟล์ CSV\n\n" +

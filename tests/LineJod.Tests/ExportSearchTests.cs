@@ -114,9 +114,9 @@ public class CsvTests
         Assert.Equal(new byte[] { 0xEF, 0xBB, 0xBF }, bytes[..3]);
         Assert.Equal(new[]
         {
-            "วันที่,ประเภท,หมวด,จำนวนเงิน (บาท),โน้ต,ที่มา",
-            "2026-10-01,รายรับ,เงินเดือน,30000.00,เงินเดือน,แอป",
-            "2026-10-18,รายจ่าย,บิล,1250.00,ค่าไฟ,สลิป",
+            "วันที่,ประเภท,หมวด,จำนวนเงิน (บาท),โน้ต,บัญชี,ที่มา",
+            "2026-10-01,รายรับ,เงินเดือน,30000.00,เงินเดือน,,แอป",
+            "2026-10-18,รายจ่าย,บิล,1250.00,ค่าไฟ,,สลิป",
             ""
         }, Text(bytes).Split("\r\n"));
     }
@@ -128,7 +128,7 @@ public class CsvTests
         Assert.Equal("\"say \"\"hi\"\"\"", LedgerCsv.Cell("say \"hi\""));
         Assert.Equal("\"one\ntwo\"", LedgerCsv.Cell("one\ntwo"));
         Assert.Equal("", LedgerCsv.Cell(null));
-        Assert.Contains("65.50,,", Text(LedgerCsv.Build(new[] { E("EXPENSE", "food", 6550, "2026-10-18", null) })));
+        Assert.Contains("65.50,,,", Text(LedgerCsv.Build(new[] { E("EXPENSE", "food", 6550, "2026-10-18", null) })));
     }
 
     [Theory]
@@ -241,7 +241,7 @@ public class ExportEndpointTests : DbTestBase
         Assert.StartsWith("https://jod.example/export/", url);   // trailing slash of the base URL is not doubled
 
         var token = url["https://jod.example/export/".Length..];
-        var download = new ExportController(_ledger, Opts) { ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() } };
+        var download = new ExportController(_ledger, Db, Opts) { ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() } };
         var file = Assert.IsType<FileContentResult>(await download.Download(token));
         Assert.Equal("text/csv; charset=utf-8", file.ContentType);
         Assert.Contains("กาแฟ", new UTF8Encoding(false).GetString(file.FileContents));

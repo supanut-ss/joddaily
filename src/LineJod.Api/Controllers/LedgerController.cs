@@ -27,14 +27,14 @@ public class LedgerController(AppDbContext db, LedgerService ledger, LiffAuth au
     /// Returns at most 200 newest records with the totals of what was found.
     /// </summary>
     [HttpGet("search")]
-    public async Task<IActionResult> Search([FromQuery] string? q, [FromQuery] string? kind, [FromQuery] string? category)
+    public async Task<IActionResult> Search([FromQuery] string? q, [FromQuery] string? kind, [FromQuery] string? category, [FromQuery] long? accountId = null)
     {
         var user = await auth.UserAsync(Request);
         if (user == null) return Unauthorized(LiffAuth.NotSignedIn);
 
         var text = q?.Trim();
         if (text is { Length: > 60 }) text = text[..60];
-        var rows = await ledger.SearchAsync(user.Id, new SearchFilter(text, kind?.ToUpperInvariant(), category), SearchLimit);
+        var rows = await ledger.SearchAsync(user.Id, new SearchFilter(text, kind?.ToUpperInvariant(), category, AccountId: accountId), SearchLimit);
         return Ok(new
         {
             count = rows.Count,
@@ -65,7 +65,7 @@ public class LedgerController(AppDbContext db, LedgerService ledger, LiffAuth au
         return Ok(new { url = $"{baseUrl}/export/{token}", count, label, minutes = (int)ExportToken.Lifetime.TotalMinutes });
     }
 
-    public record EntryRequest(long? Id, string? Kind, string? Category, decimal Amount, string? Note, DateOnly? Date);
+    public record EntryRequest(long? Id, string? Kind, string? Category, decimal Amount, string? Note, DateOnly? Date, long? AccountId = null);
     public record IdRequest(long Id);
     public record BudgetItem(string Category, decimal Limit);
     public record BudgetRequest(List<BudgetItem>? Items);
@@ -85,6 +85,7 @@ public class LedgerController(AppDbContext db, LedgerService ledger, LiffAuth au
         var recent = await db.LedgerEntries.Where(e => e.UserId == user.Id)
             .OrderByDescending(e => e.OccurredOn).ThenByDescending(e => e.Id).Take(5).ToListAsync();
         var today = BangkokTime.Today;
+        var balances = await ledger.BalancesAsync(user.Id);
         var next = subs.OrderBy(s => s.NextChargeOn).FirstOrDefault();
 
         return Ok(new
@@ -105,6 +106,7 @@ public class LedgerController(AppDbContext db, LedgerService ledger, LiffAuth au
                 monthlySatang = subs.Sum(LedgerService.MonthlySatang),
                 next = next == null ? null : SubDto(next, today)
             },
+            accounts = new { count = balances.Count, totalSatang = balances.Sum(b => b.BalanceSatang) },
             recent = recent.Select(EntryDto)
         });
     }
@@ -148,6 +150,13 @@ public class LedgerController(AppDbContext db, LedgerService ledger, LiffAuth au
             e = new LedgerEntry { UserId = user.Id, Source = "LIFF", CreatedAt = DateTime.UtcNow };
             db.LedgerEntries.Add(e);
         }
+        // a new account must be one of the caller's active accounts; keeping the one an old entry already has is always fine (it may be archived by now)
+        if (req.AccountId != null && req.AccountId != e.AccountId && await ledger.OwnedAccountAsync(user.Id, req.AccountId) == null)
+        {
+            if (e.Id == 0) db.LedgerEntries.Remove(e);
+            return BadRequest(new { error = "ไม่พบบัญชีนี้" });
+        }
+        e.AccountId = req.AccountId;
         e.Kind = kind;
         e.Category = category;
         e.AmountSatang = Money.ToSatang(req.Amount);
@@ -307,7 +316,8 @@ public class LedgerController(AppDbContext db, LedgerService ledger, LiffAuth au
         amountSatang = e.AmountSatang,
         note = e.Note,
         date = e.OccurredOn.ToString("yyyy-MM-dd"),
-        source = e.Source
+        source = e.Source,
+        accountId = e.AccountId
     };
 
     private static object SubDto(LedgerSubscription s, DateOnly today) => new

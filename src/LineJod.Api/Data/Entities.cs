@@ -24,8 +24,10 @@ public class LedgerEntry
     public long AmountSatang { get; set; }
     public string? Note { get; set; }
     public DateOnly OccurredOn { get; set; }
-    public string Source { get; set; } = "LIFF";        // LIFF | CHAT | SLIP | SUB
+    public string Source { get; set; } = "LIFF";        // LIFF | CHAT | SLIP | SUB | REC
     public long? SubscriptionId { get; set; }           // set when a subscription charge created it
+    public long? RecurringId { get; set; }              // set when a recurring entry created it
+    public long? AccountId { get; set; }                // null = not assigned to an account
     public DateTime CreatedAt { get; set; }
 }
 
@@ -59,4 +61,53 @@ public class LedgerBudget
     public long UserId { get; set; }
     public string Category { get; set; } = "";
     public long LimitSatang { get; set; }               // per calendar month
+}
+
+/// <summary>A wallet / bank account / card. Balance = opening + income - expense of its entries + transfers in - transfers out.</summary>
+public class LedgerAccount
+{
+    public long Id { get; set; }
+    public long UserId { get; set; }
+    public AppUser User { get; set; } = null!;
+    public string Name { get; set; } = "";
+    public string Type { get; set; } = "CASH";          // CASH | BANK | CARD | EWALLET | OTHER
+    public long OpeningSatang { get; set; }             // balance when the account was added; negative for a card with debt
+    public bool IsDefault { get; set; }                 // used when an entry names no account
+    public bool Active { get; set; } = true;            // false = archived: hidden and not counted, its entries stay
+    public DateTime CreatedAt { get; set; }
+
+    public static readonly string[] Types = { "CASH", "BANK", "CARD", "EWALLET", "OTHER" };
+}
+
+/// <summary>Money moved between two accounts of the same user. Not income or expense, so reports ignore it.</summary>
+public class LedgerTransfer
+{
+    public long Id { get; set; }
+    public long UserId { get; set; }
+    public long FromAccountId { get; set; }
+    public long ToAccountId { get; set; }
+    public long AmountSatang { get; set; }
+    public DateOnly OccurredOn { get; set; }
+    public string? Note { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>A repeating income or expense (rent, salary, loan instalment). The daily job records each occurrence as an entry.</summary>
+public class LedgerRecurring
+{
+    public long Id { get; set; }
+    public long UserId { get; set; }
+    public AppUser User { get; set; } = null!;
+    public string Kind { get; set; } = "EXPENSE";       // EXPENSE | INCOME
+    public string Category { get; set; } = "other";
+    public long AmountSatang { get; set; }
+    public string? Note { get; set; }
+    public long? AccountId { get; set; }
+    public string Frequency { get; set; } = "MONTHLY";  // WEEKLY | MONTHLY | YEARLY
+    public int Day { get; set; } = 1;                   // WEEKLY: ISO weekday 1 (Mon) - 7 (Sun); otherwise day of month 1-31 (clamped to the month length)
+    public int? Month { get; set; }                     // 1-12, YEARLY only
+    public DateOnly NextOn { get; set; }
+    public DateOnly? EndOn { get; set; }                // last day it may occur
+    public bool Active { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
 }

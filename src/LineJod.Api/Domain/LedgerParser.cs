@@ -5,7 +5,13 @@ namespace LineJod.Domain;
 public record ParsedItem(string Kind, long AmountSatang, string? Note, string Category);
 
 public abstract record ChatCommand;
-public record EntryCommand(List<ParsedItem> Items, DateOnly Date) : ChatCommand;
+/// <summary><see cref="Account"/> is the name after "@" (กาแฟ 65 @เงินสด); null = the default account.</summary>
+public record EntryCommand(List<ParsedItem> Items, DateOnly Date, string? Account = null) : ChatCommand;
+public record AccountsCommand : ChatCommand;
+/// <summary>Frequency WEEKLY (Day = ISO weekday 1-7), MONTHLY (Day = day of month) or YEARLY (Day + Month).</summary>
+public record RecurringCommand(ParsedItem Item, string Frequency, int Day, int? Month, DateOnly? EndOn, string? Account) : ChatCommand;
+public record ListRecurringCommand : ChatCommand;
+public record StopRecurringCommand(string Name) : ChatCommand;
 public record SubscriptionCommand(string Name, long AmountSatang, string Cycle, int Day, int? Month, DateOnly? TrialEndsOn) : ChatCommand;
 public record ListSubscriptionsCommand : ChatCommand;
 public record StopSubscriptionCommand(string Name) : ChatCommand;
@@ -47,6 +53,11 @@ public static class LedgerParser
             case "ส่งออก" or "export" when tokens.Count == 2 && tokens[1] is "ปีนี้": return new ExportCommand("year");
             case "ส่งออก" or "export" when tokens.Count == 2 && tokens[1] is "ทั้งหมด": return new ExportCommand("all");
             case "ส่งออก": return new InvalidCommand("พิมพ์ ส่งออก (เดือนนี้) · ส่งออก ปีนี้ · ส่งออก ทั้งหมด");
+            case "บัญชี" when tokens.Count == 1: return new AccountsCommand();
+            case "ประจำ" when tokens.Count == 1: return new ListRecurringCommand();
+            case "ประจำ": return ParseRecurring(tokens.Skip(1).ToList(), today);
+            case "เลิกประจำ" when tokens.Count >= 2: return new StopRecurringCommand(string.Join(' ', tokens.Skip(1)));
+            case "เลิกประจำ": return new InvalidCommand("พิมพ์ เลิกประจำ ตามด้วยชื่อรายการ เช่น เลิกประจำ ค่าเช่า");
             case "ค้นหา" when tokens.Count >= 2: return new SearchCommand(string.Join(' ', tokens.Skip(1)));
             case "ค้นหา": return new InvalidCommand("พิมพ์ ค้นหา ตามด้วยคำ เช่น ค้นหา ค่าไฟ · ค้นหา อาหาร · ค้นหา 1250");
             case "เลิก" when tokens.Count >= 2: return new StopSubscriptionCommand(string.Join(' ', tokens.Skip(1)));
@@ -63,15 +74,24 @@ public static class LedgerParser
     private static EntryCommand? ParseEntry(List<string> tokens, DateOnly today)
     {
         var date = today;
+        string? account = null;
         var rest = new List<string>();
         foreach (var t in tokens)
         {
             if (t == "เมื่อวาน") date = today.AddDays(-1);
             else if (t == "วันนี้") date = today;
             else if (TryDate(t, today, future: false, out var d)) date = d;
+            else if (t.Length > 1 && t[0] == '@') account = t[1..];
             else rest.Add(t);
         }
+        var items = ParseItems(rest);
+        return items == null ? null : new EntryCommand(items, date, account);
+    }
 
+    /// <summary>"กาแฟ 65", "+30000 เงินเดือน", "รับ 500 ขายของ", "ข้าว 50 กาแฟ 45": word then amount, or amount then words; a leading "รับ" or a "+" makes income.</summary>
+    private static List<ParsedItem>? ParseItems(List<string> rest)
+    {
+        rest = new List<string>(rest);
         var incomeAll = false;
         if (rest.Count > 0 && rest[0] is "รับ" or "รายรับ") { incomeAll = true; rest.RemoveAt(0); }
 
@@ -98,7 +118,40 @@ public static class LedgerParser
             var kind = incomeAll || plus ? "INCOME" : "EXPENSE";
             parsed.Add(new ParsedItem(kind, satang, note.Length == 0 ? null : note, GuessCategory(note, kind)));
         }
-        return new EntryCommand(parsed, date);
+        return parsed;
+    }
+
+    // ---- recurring entries ----
+
+    private const string RecurringHint = "ตัวอย่าง: ประจำ ค่าเช่า 8000 ทุกวันที่ 1 · ประจำ +30000 เงินเดือน ทุกวันที่ 25 · ประจำ ค่าขนม 500 ทุกสัปดาห์ · ประจำ ประกัน 12000 รายปี 15/3 · ต่อท้ายได้ ถึง 31/12 หรือ @บัญชี";
+
+    private static readonly Dictionary<string, int> Weekdays = new()
+    {
+        ["ทุกวันจันทร์"] = 1, ["ทุกวันอังคาร"] = 2, ["ทุกวันพุธ"] = 3, ["ทุกวันพฤหัส"] = 4, ["ทุกวันพฤหัสบดี"] = 4,
+        ["ทุกวันศุกร์"] = 5, ["ทุกวันเสาร์"] = 6, ["ทุกวันอาทิตย์"] = 7
+    };
+
+    private static ChatCommand ParseRecurring(List<string> t, DateOnly today)
+    {
+        var freq = "MONTHLY";
+        int day = today.Day; int? month = null; DateOnly? end = null; string? account = null;
+        var rest = new List<string>();
+        for (var i = 0; i < t.Count; i++)
+        {
+            var w = t[i];
+            if (w.Length > 1 && w[0] == '@') account = w[1..];
+            else if (Weekdays.TryGetValue(w, out var wd)) { freq = "WEEKLY"; day = wd; }
+            else if (w is "ทุกสัปดาห์" or "รายสัปดาห์") { freq = "WEEKLY"; day = today.DayOfWeek == DayOfWeek.Sunday ? 7 : (int)today.DayOfWeek; }
+            else if (w is "ทุกเดือน" or "รายเดือน") freq = "MONTHLY";
+            else if (w is "รายปี" or "ทุกปี") { freq = "YEARLY"; month ??= today.Month; }
+            else if (DayRx.IsMatch(w) && i + 1 < t.Count && int.TryParse(t[i + 1], out var dd) && dd is >= 1 and <= 31) { day = dd; i++; }
+            else if (w == "ถึง" && i + 1 < t.Count && TryDate(t[i + 1], today, future: true, out var e)) { end = e; i++; }
+            else if (TryDate(w, today, future: true, out var dt)) { freq = "YEARLY"; day = dt.Day; month = dt.Month; }
+            else rest.Add(w);
+        }
+        var items = ParseItems(rest);
+        if (items is not { Count: 1 }) return new InvalidCommand(RecurringHint);
+        return new RecurringCommand(items[0], freq, day, freq == "YEARLY" ? month ?? today.Month : null, end, account);
     }
 
     // ---- subscriptions ----

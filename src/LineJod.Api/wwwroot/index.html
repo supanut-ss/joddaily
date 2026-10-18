@@ -99,7 +99,7 @@
   .fab svg.i { width:26px; height:26px; }
 
   .tabs { position:fixed; left:0; right:0; bottom:0; z-index:10; background:var(--card); border-top:1px solid var(--line);
-          display:grid; grid-template-columns:repeat(4,1fr); padding:0 max(env(safe-area-inset-right), calc((100% - 560px) / 2)) env(safe-area-inset-bottom) max(env(safe-area-inset-left), calc((100% - 560px) / 2)); }
+          display:grid; grid-template-columns:repeat(5,1fr); padding:0 max(env(safe-area-inset-right), calc((100% - 560px) / 2)) env(safe-area-inset-bottom) max(env(safe-area-inset-left), calc((100% - 560px) / 2)); }
   .tabs button { border:0; background:none; color:var(--muted); display:grid; justify-items:center; gap:2px; padding:8px 2px; font-size:12px; min-height:60px; }
   .tabs button[aria-current="page"] { color:var(--primary); font-weight:600; }
   body.no-tabs .tabs, body.no-tabs .fab { display:none; }
@@ -150,6 +150,13 @@
            border-radius:14px; padding:10px 8px 10px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:14px; }
   body.no-tabs .toast { bottom:calc(16px + env(safe-area-inset-bottom)); }
   .toast button { border:0; background:none; color:var(--primary-soft); font-weight:700; min-height:40px; padding:0 10px; }
+  .tabs button { font-size:11.5px; }
+  .acctrow { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; }
+  .acctrow::-webkit-scrollbar { display:none; }
+  .chipbtn { flex:none; min-height:40px; padding:6px 14px; border:1px solid var(--line); background:var(--card); border-radius:12px; font-weight:500; }
+  .chipbtn[aria-pressed="true"] { border-color:var(--primary); background:var(--primary-soft); font-weight:600; }
+  .v.neg { color:var(--danger); }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .results { display:grid; gap:12px; }
   .filters { display:grid; gap:10px; }
   input[type="search"].inp { -webkit-appearance:none; appearance:none; }
@@ -235,6 +242,9 @@
     back: '<path d="m15 18-6-6 6-6"/>',
     next: '<path d="m9 18 6-6-6-6"/>',
     del: '<path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM18 9l-6 6M12 9l6 6"/>',
+    card: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
+    phone: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+    bank: '<path d="M3 10l9-6 9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 21h18"/>',
     download: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
     bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/>'
   };
@@ -265,7 +275,16 @@
     var s = el('span', { class: 'ic', style: 'background:var(' + c[2] + ')' }, [svgIcon(c[1])]);
     return s;
   }
-  var SOURCES = { LIFF: '', CHAT: 'แชต', SLIP: 'สลิป', SUB: 'ค่าสมาชิก' };
+  var SOURCES = { LIFF: '', CHAT: 'แชต', SLIP: 'สลิป', SUB: 'ค่าสมาชิก', REC: 'ประจำ' };
+
+  // Accounts are cached for the pickers and the names shown on records; every screen that changes them reloads the accounts screen, which refreshes the cache.
+  var accounts = [], archivedAccounts = [];
+  function refreshAccounts() { return api('api/ledger/accounts').then(function (d) { accounts = d.accounts; archivedAccounts = d.archived || []; return d; }); }
+  function acctName(id) {
+    var all = accounts.concat(archivedAccounts), f = all.filter(function (a) { return a.id === id; })[0];
+    return f ? f.name : '';
+  }
+  function defaultAccountId() { var f = accounts.filter(function (a) { return a.isDefault; })[0]; return f ? f.id : null; }
 
   // ───────── api ─────────
   function api(path, opts) {
@@ -292,7 +311,7 @@
   }
 
   // ───────── chrome: bar, tabs, fab, toast ─────────
-  var TABS = [['home', 'หน้าแรก', 'wallet'], ['history', 'ประวัติ', 'list'], ['report', 'รายงาน', 'pie'], ['subs', 'ค่าสมาชิก', 'repeat']];
+  var TABS = [['home', 'หน้าแรก', 'wallet'], ['history', 'ประวัติ', 'list'], ['report', 'รายงาน', 'pie'], ['accounts', 'บัญชี', 'bank'], ['subs', 'ประจำ', 'repeat']];
   var current = 'home', month = monthKey(new Date());
 
   function bar(title, onBack, action) {
@@ -330,6 +349,7 @@
     if (tab === 'history') return loadHistory();
     if (tab === 'report') return loadReport();
     if (tab === 'subs') return loadSubs();
+    if (tab === 'accounts') return loadAccounts();
     return loadHome();
   }
   function backToCurrent() { open(current); }
@@ -358,7 +378,7 @@
 
   function entryRow(e, showDate) {
     var sign = e.kind === 'INCOME' ? '+' : '−';
-    var sub = [catName(e.category), SOURCES[e.source], showDate ? dayLabel(e.date) : ''].filter(Boolean).join(' · ');
+    var sub = [catName(e.category), e.accountId ? acctName(e.accountId) : '', SOURCES[e.source], showDate ? dayLabel(e.date) : ''].filter(Boolean).join(' · ');
     var b = el('button', { class: 'tx', type: 'button' }, [
       catIcon(e.category),
       el('span', { class: 'grow' }, [el('span', { class: 'n', text: e.note || catName(e.category) }), el('span', { class: 's', text: sub, style: 'display:block' })]),
@@ -383,6 +403,13 @@
         el('div', {}, [el('span', { class: 'lbl', text: 'รายจ่าย' }), el('b', { class: 'num', text: money(d.expenseSatang, '−') })])
       ])
     ]));
+
+    if (d.accounts && d.accounts.count) {
+      nodes.push(el('section', { class: 'card' }, [el('div', { class: 'card-h' }, [
+        el('h3', {}, ['บัญชี ', el('span', { class: 'muted num', style: 'font-weight:500', text: signedBaht(d.accounts.totalSatang) })]),
+        el('button', { class: 'link', type: 'button', text: 'ดูบัญชี', onclick: function () { open('accounts'); } })
+      ])]));
+    }
 
     // budgets
     var bud = el('section', { class: 'card' }, [el('div', { class: 'card-h' }, [el('h3', { text: 'งบประมาณ' }), el('button', { class: 'link', type: 'button', text: d.budgets.length ? 'แก้งบ' : 'ตั้งงบ', onclick: function () { openBudgets(d.budgets); } })])]);
@@ -425,8 +452,8 @@
   function openEntryForm(entry, kind) {
     chrome(null);
     var st = entry
-      ? { id: entry.id, kind: entry.kind, category: entry.category, amount: String(entry.amountSatang / 100), note: entry.note || '', date: entry.date }
-      : { id: null, kind: kind === 'INCOME' ? 'INCOME' : 'EXPENSE', category: kind === 'INCOME' ? 'salary' : 'food', amount: '', note: '', date: todayIso() };
+      ? { id: entry.id, kind: entry.kind, category: entry.category, amount: String(entry.amountSatang / 100), note: entry.note || '', date: entry.date, accountId: entry.accountId || null }
+      : { id: null, kind: kind === 'INCOME' ? 'INCOME' : 'EXPENSE', category: kind === 'INCOME' ? 'salary' : 'food', amount: '', note: '', date: todayIso(), accountId: defaultAccountId() };
     bar(entry ? 'แก้ไขรายการ' : 'จดรายการ', backToCurrent);
 
     var seg = el('div', { class: 'seg', role: 'group', 'aria-label': 'ประเภท' });
@@ -475,7 +502,7 @@
     var save = el('button', { class: 'cta', type: 'button', text: 'บันทึก' });
     save.addEventListener('click', function () {
       save.disabled = true;
-      post('api/ledger/entries', { id: st.id, kind: st.kind, category: st.category, amount: Number(st.amount), note: st.note, date: st.date })
+      post('api/ledger/entries', { id: st.id, kind: st.kind, category: st.category, amount: Number(st.amount), note: st.note, date: st.date, accountId: st.accountId })
         .then(function (saved) {
           backToCurrent();
           var label = catName(saved.category) + ' ' + money(saved.amountSatang, saved.kind === 'INCOME' ? '+' : '−');
@@ -491,6 +518,7 @@
     var nodes = [seg,
       el('div', { class: 'amount' }, [el('small', { text: 'จำนวนเงิน (บาท)' }), out]),
       cats,
+      accountChips(st),
       el('div', { class: 'fields' }, [
         el('div', { class: 'field' }, [el('label', { for: 'f-date', text: 'วันที่' }), dateInp]),
         el('div', { class: 'field' }, [el('label', { for: 'f-note', text: 'โน้ต' }), noteInp])
@@ -513,8 +541,8 @@
   }
 
   // ───────── history: the month list, or a search across all months ─────────
-  var hist = { kind: 'ALL', q: '', category: '' };
-  function searching() { return hist.q.trim() !== '' || hist.category !== ''; }
+  var hist = { kind: 'ALL', q: '', category: '', accountId: '' };
+  function searching() { return hist.q.trim() !== '' || hist.category !== '' || hist.accountId !== ''; }
   function fullDay(s) { var d = parseIso(s); return d.getDate() + ' ' + TH_MONTHS[d.getMonth()] + ' ' + (d.getFullYear() + 543); }
 
   function loadHistory() {
@@ -529,6 +557,13 @@
     EXPENSE_CATS.forEach(function (k) { cat.appendChild(el('option', { value: k, text: catName(k) })); });
     INCOME_CATS.forEach(function (k) { cat.appendChild(el('option', { value: k, text: k === 'other_in' ? 'อื่นๆ (รายรับ)' : catName(k) })); });
     cat.value = hist.category;
+    var acct = null;
+    if (accounts.length) {
+      acct = el('select', { class: 'inp', id: 'h-acct', 'aria-label': 'บัญชี' }, [el('option', { value: '', text: 'ทุกบัญชี' })]);
+      accounts.forEach(function (a) { acct.appendChild(el('option', { value: String(a.id), text: a.name })); });
+      acct.value = hist.accountId;
+      acct.addEventListener('change', function () { hist.accountId = acct.value; refresh(); });
+    }
     var seg = el('div', { class: 'seg', role: 'group', 'aria-label': 'ประเภท' });
     var box = el('div', { class: 'results', 'aria-live': 'polite' });
     var token = 0, timer;
@@ -543,7 +578,7 @@
       switcher.hidden = searching();
       var mine = ++token, path;
       if (searching()) {
-        path = 'api/ledger/search?q=' + encodeURIComponent(hist.q.trim()) + '&category=' + encodeURIComponent(hist.category) + (hist.kind === 'ALL' ? '' : '&kind=' + hist.kind);
+        path = 'api/ledger/search?q=' + encodeURIComponent(hist.q.trim()) + '&category=' + encodeURIComponent(hist.category) + '&accountId=' + encodeURIComponent(hist.accountId) + (hist.kind === 'ALL' ? '' : '&kind=' + hist.kind);
       } else path = 'api/ledger/entries?month=' + month;
       api(path).then(function (d) {
         if (mine !== token || seq !== navSeq) return;
@@ -587,7 +622,7 @@
     search.addEventListener('search', function () { hist.q = search.value; clearTimeout(timer); refresh(); });
     cat.addEventListener('change', function () { hist.category = cat.value; refresh(); });
     drawSeg();
-    show([switcher, el('div', { class: 'filters' }, [search, cat, seg]), box]);
+    show([switcher, el('div', { class: 'filters' }, [search, acct ? el('div', { class: 'two' }, [cat, acct]) : cat, seg]), box]);
     refresh();
   }
 
@@ -723,13 +758,25 @@
     if (onClick) b.addEventListener('click', onClick);
     return b;
   }
+  var subsView = 'subs';   // 'subs' = subscriptions, 'rec' = recurring entries
+  function subsSeg() {
+    var seg = el('div', { class: 'seg', role: 'group', 'aria-label': 'ประเภทรายการประจำ' });
+    [['subs', 'ค่าสมาชิก'], ['rec', 'รายการประจำ']].forEach(function (v) {
+      seg.appendChild(el('button', { type: 'button', 'aria-pressed': String(subsView === v[0]), text: v[1], onclick: function () { subsView = v[0]; loadSubs(); } }));
+    });
+    return seg;
+  }
   function loadSubs() {
     current = 'subs'; chrome('subs');
-    bar('ค่าสมาชิก', null, ibtn('plus', 'เพิ่มค่าสมาชิก', function () { openSubForm(null); }));
+    if (subsView === 'rec') {
+      bar('ประจำ', null, ibtn('plus', 'เพิ่มรายการประจำ', function () { openRecurringForm(null); }));
+      return load('api/ledger/recurring', renderRecurring);
+    }
+    bar('ประจำ', null, ibtn('plus', 'เพิ่มค่าสมาชิก', function () { openSubForm(null); }));
     return load('api/ledger/subscriptions', renderSubs);
   }
   function renderSubs(d) {
-    var nodes = [el('section', { class: 'sum' }, [
+    var nodes = [subsSeg(), el('section', { class: 'sum' }, [
       el('div', {}, [el('div', { class: 'lbl', text: 'ค่าสมาชิกต่อเดือน (เฉลี่ย)' }), el('div', { class: 'big num', text: approx(d.monthlySatang) })]),
       el('div', { class: 'row' }, [
         el('div', {}, [el('span', { class: 'lbl', text: 'ต่อปี' }), el('b', { class: 'num', text: money(d.yearlySatang) })]),
@@ -771,7 +818,7 @@
   }
 
   function openSubForm(s) {
-    chrome(null); bar(s ? 'แก้ไขค่าสมาชิก' : 'เพิ่มค่าสมาชิก', loadSubs);
+    chrome(null); bar(s ? 'แก้ไขค่าสมาชิก' : 'เพิ่มค่าสมาชิก', function () { subsView = 'subs'; loadSubs(); });
     var st = s
       ? { id: s.id, name: s.name, amount: String(s.amountSatang / 100), cycle: s.cycle, day: s.day, month: s.month || new Date().getMonth() + 1, category: s.category, trial: !!s.inTrial, trialEndsOn: s.trialEndsOn || '' }
       : { id: null, name: '', amount: '', cycle: 'MONTHLY', day: new Date().getDate(), month: new Date().getMonth() + 1, category: 'fun', trial: false, trialEndsOn: '' };
@@ -846,6 +893,296 @@
     show(nodes);
   }
 
+  // ───────── accounts & transfers ─────────
+  var ACCT_TYPES = [['CASH', 'เงินสด'], ['BANK', 'ธนาคาร'], ['CARD', 'บัตรเครดิต'], ['EWALLET', 'e-wallet'], ['OTHER', 'อื่นๆ']];
+  function acctTypeName(t) { var f = ACCT_TYPES.filter(function (x) { return x[0] === t; })[0]; return f ? f[1] : 'อื่นๆ'; }
+  function acctIcon(t) { return { CASH: 'wallet', BANK: 'bank', CARD: 'card', EWALLET: 'phone' }[t] || 'dots'; }
+  function signedBaht(satang) { return (satang < 0 ? '−' : '') + '฿' + baht(Math.abs(satang)); }
+
+  // A text button that needs a second tap within 3 seconds, so a destructive action is never one accidental tap away.
+  function confirmButton(label, confirmLabel, cls, action) {
+    var b = el('button', { class: cls, type: 'button', text: label }), armed = false, timer;
+    b.addEventListener('click', function () {
+      if (!armed) {
+        armed = true; b.textContent = confirmLabel;
+        timer = setTimeout(function () { armed = false; b.textContent = label; }, 3000);
+        return;
+      }
+      clearTimeout(timer); b.disabled = true; action(b);
+    });
+    return b;
+  }
+
+  // Chip row to pick the account of a record; hidden while the user has no accounts. st.accountId is read and written.
+  function accountChips(st) {
+    var wrap = el('div', { class: 'field' }, [el('span', { class: 'lbl2', text: 'บัญชี' })]);
+    var row = el('div', { class: 'acctrow', role: 'group', 'aria-label': 'บัญชี' });
+    wrap.appendChild(row);
+    function draw() {
+      row.replaceChildren();
+      var opts = [[null, 'ไม่ระบุ']].concat(accounts.map(function (a) { return [a.id, a.name]; }));
+      // an account the record already has but that was archived since stays selectable
+      if (st.accountId && !accounts.some(function (a) { return a.id === st.accountId; })) opts.push([st.accountId, acctName(st.accountId) || 'บัญชีเดิม']);
+      opts.forEach(function (o) {
+        row.appendChild(el('button', { class: 'chipbtn', type: 'button', text: o[1], 'aria-pressed': String((st.accountId || null) === o[0]),
+          onclick: function () { st.accountId = o[0]; draw(); } }));
+      });
+    }
+    draw();
+    wrap.hidden = !accounts.length && !st.accountId;
+    return wrap;
+  }
+
+  function loadAccounts() {
+    current = 'accounts'; chrome('accounts');
+    bar('บัญชี', null, ibtn('plus', 'เพิ่มบัญชี', function () { openAccountForm(null); }));
+    return load('api/ledger/accounts', renderAccounts);
+  }
+  function renderAccounts(d) {
+    accounts = d.accounts; archivedAccounts = d.archived || [];
+    var nodes = [el('section', { class: 'sum' }, [
+      el('div', {}, [el('div', { class: 'lbl', text: 'ยอดรวมทุกบัญชี' }), el('div', { class: 'big num', text: signedBaht(d.totalSatang) })]),
+      el('div', { class: 'lbl', text: accounts.length ? accounts.length + ' บัญชี · รายการที่ไม่ได้ระบุบัญชีไม่ถูกนับ' : 'ยังไม่มีบัญชี' })
+    ])];
+
+    if (!accounts.length) {
+      nodes.push(el('div', { class: 'card' }, [el('div', { class: 'empty' }, [
+        el('span', { text: 'เพิ่มบัญชี เช่น เงินสด, ธนาคาร, บัตรเครดิต แล้วเลือกบัญชีตอนจดรายการ จะเห็นยอดคงเหลือของแต่ละบัญชี' }),
+        el('button', { class: 'cta', type: 'button', text: 'เพิ่มบัญชีแรก', onclick: function () { openAccountForm(null); } })
+      ])]));
+      return show(nodes);
+    }
+
+    var card = el('section', { class: 'card', style: 'gap:4px' });
+    accounts.forEach(function (a) {
+      var b = el('button', { class: 'tx', type: 'button' }, [
+        el('span', { class: 'av', 'aria-hidden': 'true' }, [svgIcon(acctIcon(a.type))]),
+        el('span', { class: 'grow' }, [el('span', { class: 'n', text: a.name }), el('span', { class: 's', style: 'display:block', text: acctTypeName(a.type) + (a.isDefault ? ' · บัญชีหลัก' : '') })]),
+        el('span', { class: 'v num' + (a.balanceSatang < 0 ? ' neg' : ''), text: signedBaht(a.balanceSatang) })
+      ]);
+      b.addEventListener('click', function () { openAccountForm(a); });
+      card.appendChild(b);
+    });
+    nodes.push(card);
+    if (accounts.length >= 2) nodes.push(el('button', { class: 'ghost', type: 'button', text: 'โอนระหว่างบัญชี', onclick: openTransferForm }));
+
+    if (d.transfers.length) {
+      var tcard = el('section', { class: 'card', style: 'gap:4px' }, [el('h3', { text: 'การโอนล่าสุด' })]);
+      d.transfers.forEach(function (t) {
+        var del = confirmButton('ลบ', 'ยืนยันลบ', 'link', function () {
+          post('api/ledger/transfers/delete', { id: t.id }).then(function () { loadAccounts(); toast('ลบการโอนแล้ว'); }).catch(function (e) { toast(e.message); });
+        });
+        tcard.appendChild(el('div', { class: 'tx', style: 'grid-template-columns:1fr auto auto' }, [
+          el('span', { class: 'grow' }, [el('span', { class: 'n', text: acctName(t.fromId) + ' → ' + acctName(t.toId) }), el('span', { class: 's', style: 'display:block', text: fullDay(t.date) + (t.note ? ' · ' + t.note : '') })]),
+          el('span', { class: 'v num', text: money(t.amountSatang) }), del
+        ]));
+      });
+      nodes.push(tcard);
+    }
+    show(nodes);
+  }
+
+  function openAccountForm(a) {
+    chrome(null); bar(a ? 'แก้ไขบัญชี' : 'เพิ่มบัญชี', loadAccounts);
+    var name = el('input', { class: 'inp', id: 'a-name', maxlength: '40', placeholder: 'เช่น เงินสด, KBank, บัตร KTC', value: a ? a.name : '' });
+    var type = el('select', { class: 'inp', id: 'a-type' });
+    ACCT_TYPES.forEach(function (t) { type.appendChild(el('option', { value: t[0], text: t[1] })); });
+    type.value = a ? a.type : 'CASH';
+    var opening = el('input', { class: 'inp num', id: 'a-open', type: 'number', inputmode: 'decimal', step: '0.01', placeholder: '0', value: a ? String(a.openingSatang / 100) : '' });
+    var def = el('input', { type: 'checkbox', id: 'a-def' });
+    def.checked = a ? a.isDefault : accounts.length === 0;
+    var err = el('div', { class: 'err', role: 'alert' });
+    var save = el('button', { class: 'cta', type: 'button', text: 'บันทึก' });
+    save.addEventListener('click', function () {
+      if (!name.value.trim()) { err.textContent = 'ใส่ชื่อบัญชี'; name.focus(); return; }
+      save.disabled = true; err.textContent = '';
+      post('api/ledger/accounts', { id: a ? a.id : null, name: name.value, type: type.value, opening: Number(opening.value || 0), isDefault: def.checked })
+        .then(function (r) { loadAccounts(); toast((a ? 'แก้ไข ' : 'เพิ่มบัญชี ') + r.name + ' แล้ว'); })
+        .catch(function (e) { err.textContent = e.message; save.disabled = false; });
+    });
+    var nodes = [el('section', { class: 'card' }, [
+      el('div', { class: 'field' }, [el('label', { for: 'a-name', text: 'ชื่อบัญชี' }), name]),
+      el('div', { class: 'field' }, [el('label', { for: 'a-type', text: 'ประเภท' }), type]),
+      el('div', { class: 'field' }, [el('label', { for: 'a-open', text: 'ยอดตั้งต้น (บาท)' }), opening,
+        el('span', { class: 'hint', text: 'เงินในบัญชีตอนนี้ ใส่ติดลบได้ถ้าเป็นบัตรที่มีหนี้ เช่น -3500' })]),
+      el('label', { class: 'check', for: 'a-def' }, [def, el('span', { text: 'ใช้เป็นบัญชีหลัก (เมื่อจดโดยไม่ระบุบัญชี)' })])
+    ]), err, save];
+    if (a) {
+      nodes.push(confirmButton('เลิกใช้บัญชีนี้', 'แตะอีกครั้งเพื่อยืนยัน (รายการเดิมยังอยู่)', 'ghost danger', function (b) {
+        post('api/ledger/accounts/archive', { id: a.id }).then(function () { loadAccounts(); toast('เลิกใช้ ' + a.name + ' แล้ว'); })
+          .catch(function (e) { err.textContent = e.message; b.disabled = false; });
+      }));
+    }
+    show(nodes);
+  }
+
+  function openTransferForm() {
+    chrome(null); bar('โอนระหว่างบัญชี', loadAccounts);
+    function picker(id) {
+      var sel = el('select', { class: 'inp', id: id });
+      accounts.forEach(function (a) { sel.appendChild(el('option', { value: String(a.id), text: a.name })); });
+      return sel;
+    }
+    var from = picker('t-from'), to = picker('t-to');
+    from.value = String(accounts[0].id); to.value = String(accounts[1].id);
+    var amount = el('input', { class: 'inp num', id: 't-amount', type: 'number', inputmode: 'decimal', min: '0', step: '0.01', placeholder: '0' });
+    var date = el('input', { class: 'inp', id: 't-date', type: 'date', value: todayIso(), max: todayIso() });
+    var note = el('input', { class: 'inp', id: 't-note', maxlength: '120', placeholder: 'เช่น ถอนเงินสด, จ่ายบัตร' });
+    var err = el('div', { class: 'err', role: 'alert' });
+    var save = el('button', { class: 'cta', type: 'button', text: 'โอน' });
+    save.addEventListener('click', function () {
+      if (from.value === to.value) { err.textContent = 'เลือกบัญชีต้นทางและปลายทางคนละบัญชี'; return; }
+      if (!(Number(amount.value) > 0)) { err.textContent = 'ใส่จำนวนเงิน'; amount.focus(); return; }
+      save.disabled = true; err.textContent = '';
+      post('api/ledger/transfers', { fromId: Number(from.value), toId: Number(to.value), amount: Number(amount.value), date: date.value || todayIso(), note: note.value })
+        .then(function () { loadAccounts(); toast('โอน ฿' + baht(Math.round(Number(amount.value) * 100)) + ' แล้ว'); })
+        .catch(function (e) { err.textContent = e.message; save.disabled = false; });
+    });
+    show([el('section', { class: 'card' }, [
+      el('div', { class: 'field' }, [el('label', { for: 't-from', text: 'จากบัญชี' }), from]),
+      el('div', { class: 'field' }, [el('label', { for: 't-to', text: 'ไปบัญชี' }), to]),
+      el('div', { class: 'field' }, [el('label', { for: 't-amount', text: 'จำนวนเงิน (บาท)' }), amount]),
+      el('div', { class: 'field' }, [el('label', { for: 't-date', text: 'วันที่' }), date]),
+      el('div', { class: 'field' }, [el('label', { for: 't-note', text: 'โน้ต' }), note]),
+      el('span', { class: 'hint', text: 'การโอนไม่นับเป็นรายรับหรือรายจ่าย แค่ย้ายเงินระหว่างบัญชี' })
+    ]), err, save]);
+  }
+
+  // ───────── recurring entries ─────────
+  var WEEKDAYS = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์'];
+  function isoWeekday(d) { return d.getDay() === 0 ? 7 : d.getDay(); }
+  function freqLabel(r) {
+    if (r.frequency === 'WEEKLY') return 'ทุกวัน' + WEEKDAYS[r.day - 1];
+    if (r.frequency === 'YEARLY') return 'ทุกปี ' + r.day + ' ' + TH_MONTHS[(r.month || 1) - 1];
+    return 'ทุกวันที่ ' + r.day;
+  }
+
+  function renderRecurring(d) {
+    var nodes = [subsSeg(), el('section', { class: 'sum' }, [
+      el('div', { class: 'lbl', text: 'เฉลี่ยต่อเดือน' }),
+      el('div', { class: 'row' }, [
+        el('div', {}, [el('span', { class: 'lbl', text: 'รายรับประจำ' }), el('b', { class: 'num', text: money(d.monthlyIncomeSatang, '+') })]),
+        el('div', {}, [el('span', { class: 'lbl', text: 'รายจ่ายประจำ' }), el('b', { class: 'num', text: money(d.monthlyExpenseSatang, '−') })])
+      ])
+    ])];
+    if (!d.items.length) {
+      nodes.push(el('div', { class: 'card' }, [el('div', { class: 'empty' }, [
+        el('span', { text: 'ยังไม่มีรายการประจำ เช่น ค่าเช่าห้อง เงินเดือน ค่างวด เพิ่มแล้วระบบจะลงรายการให้เองทุกรอบ' }),
+        el('button', { class: 'cta', type: 'button', text: 'เพิ่มรายการประจำ', onclick: function () { openRecurringForm(null); } })
+      ])]));
+      return show(nodes);
+    }
+    var card = el('section', { class: 'card', style: 'gap:4px' });
+    d.items.forEach(function (r) {
+      var sub = [freqLabel(r), 'ถัดไป ' + dayLabel(r.nextOn), r.accountId ? acctName(r.accountId) : '', r.endOn ? 'ถึง ' + dayLabel(r.endOn) : ''].filter(Boolean).join(' · ');
+      var b = el('button', { class: 'tx', type: 'button' }, [
+        catIcon(r.category),
+        el('span', { class: 'grow' }, [el('span', { class: 'n', text: r.note || catName(r.category) }), el('span', { class: 's', style: 'display:block', text: sub })]),
+        el('span', { class: 'v num' + (r.kind === 'INCOME' ? ' in' : ''), text: money(r.amountSatang, r.kind === 'INCOME' ? '+' : '−') })
+      ]);
+      b.addEventListener('click', function () { openRecurringForm(r); });
+      card.appendChild(b);
+    });
+    nodes.push(card);
+    show(nodes);
+  }
+
+  function openRecurringForm(r) {
+    subsView = 'rec';
+    chrome(null); bar(r ? 'แก้ไขรายการประจำ' : 'เพิ่มรายการประจำ', loadSubs);
+    var now = new Date();
+    var st = r
+      ? { id: r.id, kind: r.kind, category: r.category, accountId: r.accountId || null, freq: r.frequency, day: r.day, month: r.month || now.getMonth() + 1, hasEnd: !!r.endOn }
+      : { id: null, kind: 'EXPENSE', category: 'housing', accountId: defaultAccountId(), freq: 'MONTHLY', day: now.getDate(), month: now.getMonth() + 1, hasEnd: false };
+
+    var kindSeg = el('div', { class: 'seg', role: 'group', 'aria-label': 'ประเภท' });
+    var note = el('input', { class: 'inp', id: 'r-note', maxlength: '120', placeholder: 'เช่น ค่าเช่าห้อง, เงินเดือน, ค่างวดรถ', value: r && r.note ? r.note : '' });
+    var amount = el('input', { class: 'inp num', id: 'r-amount', type: 'number', inputmode: 'decimal', min: '0', step: '0.01', placeholder: '0', value: r ? String(r.amountSatang / 100) : '' });
+    var cats = el('div', { class: 'cats' });
+    var freqSeg = el('div', { class: 'seg', role: 'group', 'aria-label': 'ความถี่' });
+    var dayBox = el('div', { class: 'two' });
+    var endChk = el('input', { type: 'checkbox', id: 'r-end' });
+    endChk.checked = st.hasEnd;
+    var endDate = el('input', { class: 'inp', id: 'r-end-date', type: 'date', min: todayIso(), value: r && r.endOn ? r.endOn : '' });
+    var endField = el('div', { class: 'field' }, [el('label', { for: 'r-end-date', text: 'สิ้นสุดวันที่' }), endDate]);
+    var err = el('div', { class: 'err', role: 'alert' });
+    var acct = accountChips(st);
+
+    function draw() {
+      kindSeg.replaceChildren();
+      [['EXPENSE', 'รายจ่าย'], ['INCOME', 'รายรับ']].forEach(function (k) {
+        kindSeg.appendChild(el('button', { type: 'button', 'aria-pressed': String(st.kind === k[0]), text: k[1], onclick: function () {
+          if (st.kind === k[0]) return;
+          st.kind = k[0]; st.category = k[0] === 'INCOME' ? 'salary' : 'housing'; draw();
+        } }));
+      });
+      cats.replaceChildren();
+      (st.kind === 'INCOME' ? INCOME_CATS : EXPENSE_CATS).forEach(function (k) {
+        var b = el('button', { class: 'cat', type: 'button', 'aria-pressed': String(st.category === k) }, [catIcon(k), el('span', { text: catName(k) })]);
+        b.addEventListener('click', function () { st.category = k; draw(); });
+        cats.appendChild(b);
+      });
+      freqSeg.replaceChildren();
+      [['WEEKLY', 'รายสัปดาห์'], ['MONTHLY', 'รายเดือน'], ['YEARLY', 'รายปี']].forEach(function (f) {
+        freqSeg.appendChild(el('button', { type: 'button', 'aria-pressed': String(st.freq === f[0]), text: f[1], onclick: function () {
+          if (st.freq === f[0]) return;
+          st.day = f[0] === 'WEEKLY' ? isoWeekday(now) : (st.freq === 'WEEKLY' ? now.getDate() : st.day);
+          st.freq = f[0]; draw();
+        } }));
+      });
+      dayBox.replaceChildren();
+      var day = el('select', { class: 'inp', id: 'r-day', 'aria-label': st.freq === 'WEEKLY' ? 'วันในสัปดาห์' : 'วันที่' });
+      if (st.freq === 'WEEKLY') WEEKDAYS.forEach(function (w, i) { day.appendChild(el('option', { value: String(i + 1), text: 'ทุกวัน' + w })); });
+      else for (var i = 1; i <= 31; i++) day.appendChild(el('option', { value: String(i), text: 'วันที่ ' + i }));
+      day.value = String(st.day);
+      day.addEventListener('change', function () { st.day = Number(day.value); });
+      dayBox.appendChild(day);
+      if (st.freq === 'YEARLY') {
+        var mon = el('select', { class: 'inp', id: 'r-month', 'aria-label': 'เดือน' });
+        TH_MONTHS_FULL.forEach(function (m, idx) { mon.appendChild(el('option', { value: String(idx + 1), text: m })); });
+        mon.value = String(st.month);
+        mon.addEventListener('change', function () { st.month = Number(mon.value); });
+        dayBox.appendChild(mon);
+      }
+      dayBox.style.gridTemplateColumns = st.freq === 'YEARLY' ? '1fr 1fr' : '1fr';
+      endField.hidden = !endChk.checked;
+    }
+    endChk.addEventListener('change', draw);
+
+    var save = el('button', { class: 'cta', type: 'button', text: 'บันทึก' });
+    save.addEventListener('click', function () {
+      if (!(Number(amount.value) > 0)) { err.textContent = 'ใส่จำนวนเงิน'; amount.focus(); return; }
+      if (endChk.checked && !endDate.value) { err.textContent = 'เลือกวันที่สิ้นสุด'; endDate.focus(); return; }
+      save.disabled = true; err.textContent = '';
+      post('api/ledger/recurring', {
+        id: st.id, kind: st.kind, category: st.category, amount: Number(amount.value), note: note.value, accountId: st.accountId,
+        frequency: st.freq, day: st.day, month: st.freq === 'YEARLY' ? st.month : null, endOn: endChk.checked ? endDate.value : null
+      }).then(function (res) { loadSubs(); toast('บันทึกแล้ว · ลงรายการให้เองครั้งแรก ' + dayLabel(res.nextOn)); })
+        .catch(function (e) { err.textContent = e.message; save.disabled = false; });
+    });
+
+    var nodes = [el('section', { class: 'card' }, [
+      kindSeg,
+      el('div', { class: 'field' }, [el('label', { for: 'r-note', text: 'ชื่อรายการ' }), note]),
+      el('div', { class: 'field' }, [el('label', { for: 'r-amount', text: 'จำนวนเงิน (บาท)' }), amount]),
+      el('div', { class: 'field' }, [el('span', { class: 'lbl2', text: 'หมวด' }), cats]),
+      acct
+    ]), el('section', { class: 'card' }, [
+      el('div', { class: 'field' }, [el('span', { class: 'lbl2', text: 'ความถี่' }), freqSeg]),
+      dayBox,
+      el('label', { class: 'check', for: 'r-end' }, [endChk, el('span', { text: 'มีวันสิ้นสุด (เช่น ผ่อนครบ)' })]),
+      endField
+    ]), err, save];
+    if (r) {
+      nodes.push(confirmButton('เลิกรายการนี้', 'แตะอีกครั้งเพื่อยืนยัน (ที่ลงไปแล้วยังอยู่)', 'ghost danger', function (b) {
+        post('api/ledger/recurring/stop', { id: r.id }).then(function () { loadSubs(); toast('หยุดรายการประจำแล้ว'); })
+          .catch(function (e) { err.textContent = e.message; b.disabled = false; });
+      }));
+    }
+    draw();
+    show(nodes);
+  }
+
   // ───────── demo backend (?demo=1): sample data in memory, mirrors the API shapes ─────────
   var Demo = {
     seq: 100,
@@ -861,6 +1198,20 @@
       this.entries.push({ id: 90, kind: 'EXPENSE', category: 'bills', amountSatang: 118000, date: lastMonth(18), note: 'ค่าไฟ', source: 'SLIP' },
         { id: 91, kind: 'EXPENSE', category: 'food', amountSatang: 25000, date: lastMonth(9), note: 'ข้าวเย็นกับเพื่อน', source: 'CHAT' },
         { id: 92, kind: 'INCOME', category: 'salary', amountSatang: 3000000, date: lastMonth(1), note: 'เงินเดือน', source: 'LIFF' });
+      this.accounts = [{ id: 1, name: 'เงินสด', type: 'CASH', openingSatang: 300000, isDefault: false },
+        { id: 2, name: 'KBank', type: 'BANK', openingSatang: 2000000, isDefault: true },
+        { id: 3, name: 'บัตร KTC', type: 'CARD', openingSatang: 0, isDefault: false }];
+      this.archived = [{ id: 9, name: 'ออมสินเก่า' }];
+      this.transfers = [{ id: 1, fromId: 2, toId: 1, amountSatang: 300000, date: d(2), note: 'ถอนเงินสด' }];
+      var acctOf = { 1: 2, 2: 2, 3: 2, 4: 1, 5: 1, 6: 1, 7: 3, 8: 3 };   // entry id -> account id
+      this.entries.forEach(function (e) { if (acctOf[e.id]) e.accountId = acctOf[e.id]; });
+      function nextMonthDay(day) { var n = new Date(y, m, day); if (n < new Date(y, m, t.getDate())) n = new Date(y, m + 1, day); return iso(n); }
+      this.recurring = [
+        { id: 1, kind: 'EXPENSE', category: 'housing', amountSatang: 800000, note: 'ค่าเช่าห้อง', accountId: 2, frequency: 'MONTHLY', day: 1, month: null, nextOn: nextMonthDay(1), endOn: null },
+        { id: 2, kind: 'INCOME', category: 'salary', amountSatang: 3000000, note: 'เงินเดือน', accountId: 2, frequency: 'MONTHLY', day: 25, month: null, nextOn: nextMonthDay(25), endOn: null },
+        { id: 3, kind: 'EXPENSE', category: 'transport', amountSatang: 450000, note: 'ค่างวดรถ', accountId: 2, frequency: 'MONTHLY', day: 5, month: null, nextOn: nextMonthDay(5), endOn: iso(new Date(y + 1, 5, 5)) },
+        { id: 4, kind: 'EXPENSE', category: 'food', amountSatang: 50000, note: 'ค่าขนมลูก', accountId: 1, frequency: 'WEEKLY', day: 1, month: null, nextOn: iso(new Date(y, m, t.getDate() + ((8 - (t.getDay() || 7)) % 7))), endOn: null }
+      ];
       this.budgets = [{ category: 'food', limitSatang: 800000 }, { category: 'transport', limitSatang: 300000 }, { category: 'shopping', limitSatang: 400000 }];
       function sub(id, name, amt, cycle, day, mon, next, trial, cat) {
         var nd = parseIso(next), dl = Math.round((nd - new Date(y, m, t.getDate())) / 864e5);
@@ -882,7 +1233,58 @@
       var self = this, body = opts && opts.body ? JSON.parse(opts.body) : null;
       return new Promise(function (res, rej) { setTimeout(function () { try { res(self.route(path, body)); } catch (e) { rej(e); } }, 120); });
     },
+    balance: function (id) {
+      var a = this.accounts.filter(function (x) { return x.id === id; })[0], v = a.openingSatang;
+      this.entries.forEach(function (e) { if (e.accountId === id) v += e.kind === 'INCOME' ? e.amountSatang : -e.amountSatang; });
+      this.transfers.forEach(function (t) { if (t.toId === id) v += t.amountSatang; if (t.fromId === id) v -= t.amountSatang; });
+      return v;
+    },
     route: function (path, b) {
+      var self = this;
+      if (path.indexOf('api/ledger/accounts/archive') === 0) {
+        var gone = this.accounts.filter(function (a) { return a.id === b.id; })[0];
+        this.accounts = this.accounts.filter(function (a) { return a.id !== b.id; });
+        this.archived.push({ id: gone.id, name: gone.name });
+        return { archived: true };
+      }
+      if (path.indexOf('api/ledger/accounts') === 0 && b) {
+        if (!b.name.trim()) throw new Error('ใส่ชื่อบัญชี');
+        var acc = b.id ? this.accounts.filter(function (a) { return a.id === b.id; })[0] : { id: ++this.seq };
+        if (!b.id) this.accounts.push(acc);
+        acc.name = b.name.trim(); acc.type = b.type; acc.openingSatang = Math.round(b.opening * 100);
+        acc.isDefault = b.isDefault || this.accounts.length === 1;
+        if (acc.isDefault) this.accounts.forEach(function (a) { if (a !== acc) a.isDefault = false; });
+        return { id: acc.id, name: acc.name, isDefault: acc.isDefault };
+      }
+      if (path.indexOf('api/ledger/accounts') === 0) {
+        var list = this.accounts.map(function (a) { return Object.assign({}, a, { balanceSatang: self.balance(a.id) }); });
+        return { totalSatang: list.reduce(function (s, a) { return s + a.balanceSatang; }, 0), accounts: list, archived: this.archived,
+          transfers: this.transfers.slice().sort(function (a, c) { return a.date < c.date ? 1 : -1; }) };
+      }
+      if (path.indexOf('api/ledger/transfers/delete') === 0) { this.transfers = this.transfers.filter(function (t) { return t.id !== b.id; }); return { deleted: true }; }
+      if (path.indexOf('api/ledger/transfers') === 0) {
+        if (b.fromId === b.toId) throw new Error('เลือกบัญชีต้นทางและปลายทางคนละบัญชี');
+        this.transfers.push({ id: ++this.seq, fromId: b.fromId, toId: b.toId, amountSatang: Math.round(b.amount * 100), date: b.date, note: b.note || null });
+        return { id: this.seq };
+      }
+      if (path.indexOf('api/ledger/recurring/stop') === 0) { this.recurring = this.recurring.filter(function (r) { return r.id !== b.id; }); return { stopped: true }; }
+      if (path.indexOf('api/ledger/recurring') === 0 && b) {
+        var rec = b.id ? this.recurring.filter(function (r) { return r.id === b.id; })[0] : { id: ++this.seq };
+        if (!b.id) this.recurring.push(rec);
+        var today0 = new Date(); today0.setHours(0, 0, 0, 0);
+        var nx = new Date(today0);
+        if (b.frequency === 'WEEKLY') { while ((nx.getDay() || 7) !== b.day) nx.setDate(nx.getDate() + 1); }
+        else if (b.frequency === 'MONTHLY') { nx = new Date(today0.getFullYear(), today0.getMonth(), b.day); if (nx < today0) nx = new Date(today0.getFullYear(), today0.getMonth() + 1, b.day); }
+        else { nx = new Date(today0.getFullYear(), b.month - 1, b.day); if (nx < today0) nx = new Date(today0.getFullYear() + 1, b.month - 1, b.day); }
+        Object.assign(rec, { kind: b.kind, category: b.category, amountSatang: Math.round(b.amount * 100), note: (b.note || '').trim() || null, accountId: b.accountId || null,
+          frequency: b.frequency, day: b.day, month: b.month, nextOn: iso(nx), endOn: b.endOn || null });
+        return rec;
+      }
+      if (path.indexOf('api/ledger/recurring') === 0) {
+        var mon = function (r) { return r.frequency === 'WEEKLY' ? Math.round(r.amountSatang * 52 / 12) : r.frequency === 'YEARLY' ? Math.round(r.amountSatang / 12) : r.amountSatang; };
+        var sum = function (kind) { return self.recurring.filter(function (r) { return r.kind === kind; }).reduce(function (s, r) { return s + mon(r); }, 0); };
+        return { monthlyIncomeSatang: sum('INCOME'), monthlyExpenseSatang: sum('EXPENSE'), items: this.recurring.slice().sort(function (a, c) { return a.nextOn < c.nextOn ? -1 : 1; }) };
+      }
       var mk = this.month(path), inMonth = this.entries.filter(function (e) { return e.date.slice(0, 7) === mk; });
       function total(kind, list) { return list.filter(function (e) { return e.kind === kind; }).reduce(function (s, e) { return s + e.amountSatang; }, 0); }
       var monthly = this.subs.reduce(function (s, x) { return s + x.sub.monthlySatang; }, 0);
@@ -891,13 +1293,15 @@
         var next = this.subs.map(function (x) { return x.sub; }).sort(function (a, c) { return a.daysLeft - c.daysLeft; })[0];
         return { month: mk, incomeSatang: total('INCOME', inMonth), expenseSatang: total('EXPENSE', inMonth),
           budgets: this.budgets.map(function (bg) { return { category: bg.category, limitSatang: bg.limitSatang, spentSatang: inMonth.filter(function (e) { return e.kind === 'EXPENSE' && e.category === bg.category; }).reduce(function (s, e) { return s + e.amountSatang; }, 0) }; }),
-          subscriptions: { count: this.subs.length, monthlySatang: monthly, next: next }, recent: sorted.slice(0, 5) };
+          subscriptions: { count: this.subs.length, monthlySatang: monthly, next: next },
+          accounts: { count: this.accounts.length, totalSatang: this.accounts.reduce(function (s, a) { return s + self.balance(a.id); }, 0) }, recent: sorted.slice(0, 5) };
       }
       if (path.indexOf('api/ledger/search') === 0) {
-        var qs = new URLSearchParams(path.split('?')[1] || ''), qq = (qs.get('q') || '').toLowerCase(), qcat = qs.get('category') || '', qkind = qs.get('kind') || '';
+        var qs = new URLSearchParams(path.split('?')[1] || ''), qq = (qs.get('q') || '').toLowerCase(), qcat = qs.get('category') || '', qkind = qs.get('kind') || '', qacct = qs.get('accountId') || '';
         var found = this.entries.filter(function (e) {
           if (qkind && e.kind !== qkind) return false;
           if (qcat && e.category !== qcat) return false;
+          if (qacct && String(e.accountId) !== qacct) return false;
           if (!qq) return true;
           return (e.note || '').toLowerCase().indexOf(qq) >= 0 || catName(e.category).toLowerCase().indexOf(qq) >= 0 || String(e.amountSatang / 100) === qq;
         }).sort(function (a, c) { return a.date < c.date ? 1 : a.date > c.date ? -1 : c.id - a.id; });
@@ -912,7 +1316,7 @@
       if (path.indexOf('api/ledger/entries') === 0 && b) {
         var e = b.id ? this.entries.filter(function (x) { return x.id === b.id; })[0] : { id: ++this.seq, source: 'LIFF' };
         if (!b.id) this.entries.push(e);
-        e.kind = b.kind; e.category = b.category; e.amountSatang = Math.round(b.amount * 100); e.note = (b.note || '').trim() || null; e.date = b.date;
+        e.kind = b.kind; e.category = b.category; e.amountSatang = Math.round(b.amount * 100); e.note = (b.note || '').trim() || null; e.date = b.date; e.accountId = b.accountId || null;
         return e;
       }
       if (path.indexOf('api/ledger/entries') === 0) {
@@ -950,6 +1354,10 @@
   // ───────── start ─────────
   buildTabs();
   function start(q) {
+    // accounts first: the pickers and the names on records need them
+    return refreshAccounts().catch(function () { return null; }).then(function () { return route(q); });
+  }
+  function route(q) {
     var tab = q && q.get('tab');
     if (tab === 'history' && q && q.get('q')) hist.q = q.get('q').slice(0, 60);
     if (tab === 'new') { current = 'home'; return openEntryForm(null, q.get('kind') === 'income' ? 'INCOME' : 'EXPENSE'); }
@@ -957,7 +1365,8 @@
       current = 'home'; chrome(null);
       return api('api/ledger/home?month=' + month).then(function (d) { openBudgets(d.budgets); }).catch(function (e) { fail(e.message); });
     }
-    return open(['home', 'history', 'report', 'subs'].indexOf(tab) >= 0 ? tab : 'home');
+    if (tab === 'subs' && q && q.get('view') === 'rec') subsView = 'rec';
+    return open(['home', 'history', 'report', 'subs', 'accounts'].indexOf(tab) >= 0 ? tab : 'home');
   }
   if (DEMO) { Demo.init(); start(new URLSearchParams(location.search)); return; }
 
