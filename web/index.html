@@ -176,12 +176,15 @@
 <nav class="tabs" id="tabs" aria-label="เมนูหลัก"></nav>
 <div class="toast" id="toast" role="status" hidden><span id="toastMsg"></span><button type="button" id="toastAct" hidden></button></div>
 
+<script src="config.js"></script>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script>
 (function () {
-  // The page is served by the API itself, so the API is next to it: the folder of the page URL, wherever the app is mounted
-  // ("/", "/linejod/", also "/linejod" without the slash and "/linejod/index.html").
+  // Where the API is: window.LINEJOD_API from config.js (the page and the API are different sites).
+  // Without it (local preview) the API is taken to be next to the page: the folder of the page URL.
   var API = (function () {
+    var configured = String(window.LINEJOD_API || '').trim();
+    if (configured) return configured.replace(/\/*$/, '/');
     var p = location.pathname;
     if (p.charAt(p.length - 1) === '/') return p;
     var last = p.slice(p.lastIndexOf('/') + 1);

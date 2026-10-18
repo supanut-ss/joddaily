@@ -12,6 +12,14 @@ builder.Configuration.AddJsonFile("appsettings.Production.json", optional: true,
 builder.Services.Configure<AppSettings>(builder.Configuration);
 builder.Services.AddControllers();
 
+// The frontend (the LIFF page, web/) is a static site of its own, so the browser calls this API cross-origin: allow that site only.
+var webOrigins = WebOrigins.Parse(builder.Configuration["App:WebBaseUrl"]);
+builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
+{
+    if (webOrigins.Length > 0) p.WithOrigins(webOrigins);
+    p.WithHeaders("Authorization", "Content-Type").WithMethods("GET", "POST").SetPreflightMaxAge(TimeSpan.FromHours(1));
+}));
+
 var serverVersion = builder.Configuration["Db:ServerVersion"] ?? "11.8.8-mariadb";
 builder.Services.AddDbContext<AppDbContext>(o => o
     .UseMySql(builder.Configuration.GetConnectionString("Default") ?? "", ServerVersion.Parse(serverVersion))
@@ -32,9 +40,10 @@ var pathBase = (builder.Configuration["App:PathBase"] ?? "").Trim().Trim('/');
 if (pathBase.Length > 0) app.UsePathBase("/" + pathBase);
 app.UseRouting();   // explicit, after UsePathBase: the implicit one runs first and would match endpoints on the unstripped path
 
-app.UseDefaultFiles();   // "/" serves wwwroot/index.html (the LIFF page)
-app.UseStaticFiles();
+app.UseCors();
 app.MapControllers();
+
+app.MapGet("/", () => Results.Json(new { app = "LineJod API", ok = true }));   // a status check; the LIFF page is a separate site
 
 app.MapGet("/health", async (AppDbContext db) =>
     await db.Database.CanConnectAsync()

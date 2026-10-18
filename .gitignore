@@ -4,3 +4,4 @@ obj/
 .claude/
 appsettings.Production.json
 publish/
+publish-web/
