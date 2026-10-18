@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LineJod.Api/LineJod.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LineJod.Tests/LineJod.Tests.csproj" />
+  </Folder>
+</Solution>
