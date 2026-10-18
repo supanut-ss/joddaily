@@ -37,6 +37,8 @@ CREATE TABLE ledger_subscriptions (
   next_charge_on  DATE         NOT NULL,
   trial_ends_on   DATE         NULL,
   active          TINYINT(1)   NOT NULL DEFAULT 1,
+  charge_notified_for  DATE    NULL,
+  trial_notice_level   INT     NOT NULL DEFAULT 0,
   created_at      DATETIME(3)  NOT NULL,
   KEY ix_ledger_sub_due (active, next_charge_on),
   CONSTRAINT fk_ledger_sub_user FOREIGN KEY (user_id) REFERENCES users(id)
@@ -48,4 +50,9 @@ CREATE TABLE ledger_budgets (
   limit_satang  BIGINT      NOT NULL,
   PRIMARY KEY (user_id, category),
   CONSTRAINT fk_ledger_budget_user FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE processed_events (                 -- webhook idempotency; purged by the daily job after 7 days
+  webhook_event_id  VARCHAR(64) NOT NULL PRIMARY KEY,
+  processed_at      DATETIME(3) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

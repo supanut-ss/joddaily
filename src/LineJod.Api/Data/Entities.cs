@@ -43,7 +43,15 @@ public class LedgerSubscription
     public DateOnly NextChargeOn { get; set; }
     public DateOnly? TrialEndsOn { get; set; }          // free trial: no charge before this day
     public bool Active { get; set; } = true;
+    public DateOnly? ChargeNotifiedFor { get; set; }    // the NextChargeOn the "charged tomorrow" push was sent for
+    public int TrialNoticeLevel { get; set; }           // 0 none, 1 = 3-day notice sent, 2 = 1-day notice sent
     public DateTime CreatedAt { get; set; }
+}
+
+public class ProcessedEvent
+{
+    public string WebhookEventId { get; set; } = "";
+    public DateTime ProcessedAt { get; set; }
 }
 
 public class LedgerBudget

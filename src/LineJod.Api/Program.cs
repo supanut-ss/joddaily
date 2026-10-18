@@ -20,6 +20,9 @@ builder.Services.AddDbContext<AppDbContext>(o => o
 builder.Services.AddHttpClient<LineClient>(c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddScoped<LiffAuth>();
 builder.Services.AddScoped<LedgerService>();
+builder.Services.AddScoped<LedgerChatService>();
+builder.Services.AddScoped<LedgerNotifier>();
+builder.Services.AddScoped<WebhookProcessor>();
 
 var app = builder.Build();
 

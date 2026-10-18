@@ -10,6 +10,15 @@ public static class LedgerCategories
     public static readonly string[] Expense = { "food", "transport", "bills", "shopping", "housing", "health", "fun", "other" };
     public static readonly string[] Income = { "salary", "freelance", "gift", "other_in" };
 
+    private static readonly Dictionary<string, string> Names = new()
+    {
+        ["food"] = "อาหาร", ["transport"] = "เดินทาง", ["bills"] = "บิล", ["shopping"] = "ช้อปปิ้ง", ["housing"] = "ที่พัก",
+        ["health"] = "สุขภาพ", ["fun"] = "บันเทิง", ["other"] = "อื่นๆ",
+        ["salary"] = "เงินเดือน", ["freelance"] = "ฟรีแลนซ์", ["gift"] = "ของขวัญ", ["other_in"] = "อื่นๆ"
+    };
+
+    public static string Name(string category) => Names.GetValueOrDefault(category, "อื่นๆ");
+
     public static bool IsValid(string kind, string category) =>
         (kind == "EXPENSE" ? Expense : kind == "INCOME" ? Income : Array.Empty<string>()).Contains(category);
 }

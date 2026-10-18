@@ -223,6 +223,7 @@ public class LedgerController(AppDbContext db, LedgerService ledger, LiffAuth au
         s.Cycle = cycle;
         s.BillingDay = req.Day;
         s.BillingMonth = cycle == "YEARLY" ? req.Month : null;
+        if (s.TrialEndsOn != req.TrialEndsOn) s.TrialNoticeLevel = 0;
         s.TrialEndsOn = req.TrialEndsOn;
 
         var today = BangkokTime.Today;

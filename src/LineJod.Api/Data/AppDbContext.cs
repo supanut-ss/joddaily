@@ -8,6 +8,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
     public DbSet<LedgerSubscription> LedgerSubscriptions => Set<LedgerSubscription>();
     public DbSet<LedgerBudget> LedgerBudgets => Set<LedgerBudget>();
+    public DbSet<ProcessedEvent> ProcessedEvents => Set<ProcessedEvent>();
 
     protected override void OnModelCreating(ModelBuilder m)
     {
@@ -29,6 +30,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.ToTable("ledger_subscriptions");
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
             e.HasIndex(x => new { x.Active, x.NextChargeOn });
+        });
+        m.Entity<ProcessedEvent>(e =>
+        {
+            e.ToTable("processed_events");
+            e.HasKey(x => x.WebhookEventId);
         });
         m.Entity<LedgerBudget>(e =>
         {
