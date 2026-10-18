@@ -1,6 +1,8 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using LineJod.Config;
 using LineJod.Data;
 using LineJod.Domain;
 using LineJod.Services;
@@ -13,9 +15,55 @@ namespace LineJod.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/ledger")]
-public class LedgerController(AppDbContext db, LedgerService ledger, LiffAuth auth) : ControllerBase
+public class LedgerController(AppDbContext db, LedgerService ledger, LiffAuth auth, IOptions<AppSettings> options) : ControllerBase
 {
     private const decimal MaxAmountBaht = 10_000_000m;
+    private const int SearchLimit = 200;
+
+    public record ExportRequest(string? Scope, string? Month);
+
+    /// <summary>
+    /// Search over all months by note, category name or exact amount, optionally narrowed by kind and category.
+    /// Returns at most 200 newest records with the totals of what was found.
+    /// </summary>
+    [HttpGet("search")]
+    public async Task<IActionResult> Search([FromQuery] string? q, [FromQuery] string? kind, [FromQuery] string? category)
+    {
+        var user = await auth.UserAsync(Request);
+        if (user == null) return Unauthorized(LiffAuth.NotSignedIn);
+
+        var text = q?.Trim();
+        if (text is { Length: > 60 }) text = text[..60];
+        var rows = await ledger.SearchAsync(user.Id, new SearchFilter(text, kind?.ToUpperInvariant(), category), SearchLimit);
+        return Ok(new
+        {
+            count = rows.Count,
+            truncated = rows.Count == SearchLimit,
+            incomeSatang = rows.Where(r => r.Kind == "INCOME").Sum(r => r.AmountSatang),
+            expenseSatang = rows.Where(r => r.Kind == "EXPENSE").Sum(r => r.AmountSatang),
+            entries = rows.Select(EntryDto)
+        });
+    }
+
+    /// <summary>A 10-minute signed link to download the records as CSV (scope: month | year | all).</summary>
+    [HttpPost("export-link")]
+    public async Task<IActionResult> ExportLink([FromBody] ExportRequest req)
+    {
+        var user = await auth.UserAsync(Request);
+        if (user == null) return Unauthorized(LiffAuth.NotSignedIn);
+
+        var baseUrl = options.Value.App.PublicBaseUrl.TrimEnd('/');
+        var secret = options.Value.Line.ChannelSecret;
+        if (baseUrl.Length == 0 || secret.Length == 0) return StatusCode(503, new { error = "ยังไม่ได้ตั้งค่าลิงก์ดาวน์โหลด (App:PublicBaseUrl)" });
+
+        var (from, to, label) = LedgerService.ExportScope(req.Scope, req.Month, BangkokTime.Today);
+        var count = await ledger.CountAsync(user.Id, from, to);
+        if (count == 0) return BadRequest(new { error = "ไม่มีรายการในช่วง" + label });
+        if (count > LedgerService.MaxExportRows) return BadRequest(new { error = "รายการมากเกินไป เลือกช่วงให้สั้นลง" });
+
+        var token = ExportToken.Create(user.Id, from, to, DateTime.UtcNow, secret);
+        return Ok(new { url = $"{baseUrl}/export/{token}", count, label, minutes = (int)ExportToken.Lifetime.TotalMinutes });
+    }
 
     public record EntryRequest(long? Id, string? Kind, string? Category, decimal Amount, string? Note, DateOnly? Date);
     public record IdRequest(long Id);

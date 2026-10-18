@@ -9,6 +9,7 @@ public static class LedgerCategories
 {
     public static readonly string[] Expense = { "food", "transport", "bills", "shopping", "housing", "health", "fun", "other" };
     public static readonly string[] Income = { "salary", "freelance", "gift", "other_in" };
+    public static IEnumerable<string> All => Expense.Concat(Income);
 
     private static readonly Dictionary<string, string> Names = new()
     {
@@ -22,6 +23,8 @@ public static class LedgerCategories
     public static bool IsValid(string kind, string category) =>
         (kind == "EXPENSE" ? Expense : kind == "INCOME" ? Income : Array.Empty<string>()).Contains(category);
 }
+
+public record SearchFilter(string? Q = null, string? Kind = null, string? Category = null, DateOnly? From = null, DateOnly? To = null);
 
 /// <summary>Personal income / expense records, monthly summaries and subscriptions that record themselves on their billing day.</summary>
 public class LedgerService(AppDbContext db)
@@ -109,4 +112,53 @@ public class LedgerService(AppDbContext db)
         await db.SaveChangesAsync();
         return created;
     }
+
+    // ---- search / export ----
+
+    /// <summary>
+    /// Records of one user, newest first. The text matches the note, the Thai name of the category ("อาหาร"),
+    /// or the exact amount when the text is a number ("1250").
+    /// </summary>
+    public async Task<List<LedgerEntry>> SearchAsync(long userId, SearchFilter f, int limit = 200)
+    {
+        var q = db.LedgerEntries.Where(e => e.UserId == userId);
+        if (f.Kind is "EXPENSE" or "INCOME") q = q.Where(e => e.Kind == f.Kind);
+        if (!string.IsNullOrEmpty(f.Category)) q = q.Where(e => e.Category == f.Category);
+        if (f.From is { } from) q = q.Where(e => e.OccurredOn >= from);
+        if (f.To is { } to) q = q.Where(e => e.OccurredOn <= to);
+
+        var text = f.Q?.Trim();
+        if (!string.IsNullOrEmpty(text))
+        {
+            var cats = LedgerCategories.All.Where(k => LedgerCategories.Name(k).Contains(text, StringComparison.OrdinalIgnoreCase)).ToList();
+            var hasAmount = LedgerParser.TryAmount(text, out var satang, out _);
+            q = q.Where(e => (e.Note != null && e.Note.Contains(text)) || cats.Contains(e.Category) || (hasAmount && e.AmountSatang == satang));
+        }
+        return await q.OrderByDescending(e => e.OccurredOn).ThenByDescending(e => e.Id).Take(limit).ToListAsync();
+    }
+
+    public const int MaxExportRows = 50_000;
+
+    /// <summary>"month" (the given yyyy-MM or the current month), "year" (this calendar year) or "all"; with a Thai label for messages.</summary>
+    public static (DateOnly? From, DateOnly? To, string Label) ExportScope(string? scope, string? month, DateOnly today)
+    {
+        switch (scope)
+        {
+            case "all": return (null, null, "ทั้งหมด");
+            case "year": return (new DateOnly(today.Year, 1, 1), new DateOnly(today.Year, 12, 31), $"ปี {today.Year + 543}");
+        }
+        var (y, m) = (today.Year, today.Month);
+        if (month != null && DateTime.TryParseExact(month, "yyyy-MM", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var d) && d.Year >= 2000)
+            (y, m) = (d.Year, d.Month);
+        var (from, to) = MonthRange(y, m);
+        return (from, to, $"{ThaiMonthShort[m - 1]} {y + 543}");
+    }
+
+    private static readonly string[] ThaiMonthShort = { "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค." };
+
+    public Task<List<LedgerEntry>> ExportRowsAsync(long userId, DateOnly? from, DateOnly? to) =>
+        SearchAsync(userId, new SearchFilter(From: from, To: to), MaxExportRows);
+
+    public Task<int> CountAsync(long userId, DateOnly? from, DateOnly? to) =>
+        db.LedgerEntries.CountAsync(e => e.UserId == userId && (from == null || e.OccurredOn >= from) && (to == null || e.OccurredOn <= to));
 }

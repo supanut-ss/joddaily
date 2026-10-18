@@ -12,6 +12,9 @@ public record StopSubscriptionCommand(string Name) : ChatCommand;
 public record SummaryCommand : ChatCommand;
 public record UndoLastCommand : ChatCommand;
 public record HelpCommand : ChatCommand;
+/// <summary>Scope is "month", "year" or "all".</summary>
+public record ExportCommand(string Scope) : ChatCommand;
+public record SearchCommand(string Text) : ChatCommand;
 /// <summary>A command word was used but the rest could not be understood; <see cref="Hint"/> shows the right form.</summary>
 public record InvalidCommand(string Hint) : ChatCommand;
 
@@ -39,6 +42,13 @@ public static class LedgerParser
             case "สรุป" or "เดือนนี้" or "สรุปเดือนนี้" when tokens.Count <= 2: return new SummaryCommand();
             case "ช่วยเหลือ" or "วิธีใช้" or "help" or "Help" when tokens.Count == 1: return new HelpCommand();
             case "ลบล่าสุด" when tokens.Count == 1: return new UndoLastCommand();
+            case "ส่งออก" or "export" when tokens.Count == 1: return new ExportCommand("month");
+            case "ส่งออก" or "export" when tokens.Count == 2 && tokens[1] is "เดือนนี้": return new ExportCommand("month");
+            case "ส่งออก" or "export" when tokens.Count == 2 && tokens[1] is "ปีนี้": return new ExportCommand("year");
+            case "ส่งออก" or "export" when tokens.Count == 2 && tokens[1] is "ทั้งหมด": return new ExportCommand("all");
+            case "ส่งออก": return new InvalidCommand("พิมพ์ ส่งออก (เดือนนี้) · ส่งออก ปีนี้ · ส่งออก ทั้งหมด");
+            case "ค้นหา" when tokens.Count >= 2: return new SearchCommand(string.Join(' ', tokens.Skip(1)));
+            case "ค้นหา": return new InvalidCommand("พิมพ์ ค้นหา ตามด้วยคำ เช่น ค้นหา ค่าไฟ · ค้นหา อาหาร · ค้นหา 1250");
             case "เลิก" when tokens.Count >= 2: return new StopSubscriptionCommand(string.Join(' ', tokens.Skip(1)));
             case "เลิก": return new InvalidCommand("พิมพ์ เลิก ตามด้วยชื่อบริการ เช่น เลิก Spotify");
             case "สมาชิก" when tokens.Count == 1: return new ListSubscriptionsCommand();

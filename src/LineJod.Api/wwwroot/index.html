@@ -150,6 +150,11 @@
            border-radius:14px; padding:10px 8px 10px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:14px; }
   body.no-tabs .toast { bottom:calc(16px + env(safe-area-inset-bottom)); }
   .toast button { border:0; background:none; color:var(--primary-soft); font-weight:700; min-height:40px; padding:0 10px; }
+  .results { display:grid; gap:12px; }
+  .filters { display:grid; gap:10px; }
+  input[type="search"].inp { -webkit-appearance:none; appearance:none; }
+  .hint { color:var(--muted); font-size:13px; padding:0 2px; }
+  .linkbox { display:grid; gap:10px; text-align:center; }
   .loading { text-align:center; color:var(--muted); padding:40px 0; }
 
   @media (prefers-reduced-motion:no-preference) {
@@ -230,6 +235,7 @@
     back: '<path d="m15 18-6-6 6-6"/>',
     next: '<path d="m9 18 6-6-6-6"/>',
     del: '<path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM18 9l-6 6M12 9l6 6"/>',
+    download: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
     bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/>'
   };
   function svgIcon(name) {
@@ -506,40 +512,119 @@
     show(nodes);
   }
 
-  // ───────── history ─────────
-  var histFilter = 'ALL';
-  function loadHistory() {
-    current = 'history'; chrome('history'); bar('ประวัติ');
-    return load('api/ledger/entries?month=' + month, renderHistory);
-  }
-  function renderHistory(d) {
-    var nodes = [monthSwitcher(loadHistory)];
-    var seg = el('div', { class: 'seg', role: 'group', 'aria-label': 'ตัวกรอง' });
-    [['ALL', 'ทั้งหมด'], ['EXPENSE', 'รายจ่าย'], ['INCOME', 'รายรับ']].forEach(function (f) {
-      seg.appendChild(el('button', { type: 'button', 'aria-pressed': String(histFilter === f[0]), text: f[1], onclick: function () { histFilter = f[0]; renderHistory(d); } }));
-    });
-    nodes.push(seg);
+  // ───────── history: the month list, or a search across all months ─────────
+  var hist = { kind: 'ALL', q: '', category: '' };
+  function searching() { return hist.q.trim() !== '' || hist.category !== ''; }
+  function fullDay(s) { var d = parseIso(s); return d.getDate() + ' ' + TH_MONTHS[d.getMonth()] + ' ' + (d.getFullYear() + 543); }
 
-    var rows = d.entries.filter(function (e) { return histFilter === 'ALL' || e.kind === histFilter; });
-    if (!rows.length) {
-      nodes.push(el('div', { class: 'card' }, [el('div', { class: 'empty', text: 'ไม่มีรายการใน' + monthLabel(month) })]));
-      return show(nodes);
+  function loadHistory() {
+    current = 'history'; chrome('history');
+    var seq = navSeq;
+    bar('ประวัติ', null, ibtn('download', 'ส่งออก CSV', openExport));
+
+    var switcher = monthSwitcher(loadHistory);
+    var search = el('input', { class: 'inp', id: 'h-q', type: 'search', maxlength: '60', enterkeyhint: 'search', value: hist.q,
+      placeholder: 'ค้นหา เช่น ค่าไฟ, อาหาร, 1250', 'aria-label': 'ค้นหารายการ' });
+    var cat = el('select', { class: 'inp', id: 'h-cat', 'aria-label': 'หมวด' }, [el('option', { value: '', text: 'ทุกหมวด' })]);
+    EXPENSE_CATS.forEach(function (k) { cat.appendChild(el('option', { value: k, text: catName(k) })); });
+    INCOME_CATS.forEach(function (k) { cat.appendChild(el('option', { value: k, text: k === 'other_in' ? 'อื่นๆ (รายรับ)' : catName(k) })); });
+    cat.value = hist.category;
+    var seg = el('div', { class: 'seg', role: 'group', 'aria-label': 'ประเภท' });
+    var box = el('div', { class: 'results', 'aria-live': 'polite' });
+    var token = 0, timer;
+
+    function drawSeg() {
+      seg.replaceChildren();
+      [['ALL', 'ทั้งหมด'], ['EXPENSE', 'รายจ่าย'], ['INCOME', 'รายรับ']].forEach(function (f) {
+        seg.appendChild(el('button', { type: 'button', 'aria-pressed': String(hist.kind === f[0]), text: f[1], onclick: function () { hist.kind = f[0]; drawSeg(); refresh(); } }));
+      });
     }
-    var card = el('section', { class: 'card', style: 'gap:4px' });
-    var day = null, list = null;
-    rows.forEach(function (e) {
-      if (e.date !== day) {
-        day = e.date;
-        var net = rows.filter(function (x) { return x.date === day; })
-          .reduce(function (s, x) { return s + (x.kind === 'INCOME' ? x.amountSatang : -x.amountSatang); }, 0);
-        card.appendChild(el('div', { class: 'daysep' }, [el('span', { text: dayLabel(day) }), el('span', { class: 'num' + (net > 0 ? ' in' : ''), text: money(net, net > 0 ? '+' : net < 0 ? '−' : '') })]));
-        list = el('div', {});
-        card.appendChild(list);
+    function refresh() {
+      switcher.hidden = searching();
+      var mine = ++token, path;
+      if (searching()) {
+        path = 'api/ledger/search?q=' + encodeURIComponent(hist.q.trim()) + '&category=' + encodeURIComponent(hist.category) + (hist.kind === 'ALL' ? '' : '&kind=' + hist.kind);
+      } else path = 'api/ledger/entries?month=' + month;
+      api(path).then(function (d) {
+        if (mine !== token || seq !== navSeq) return;
+        draw(d);
+      }, function (e) {
+        if (mine !== token || seq !== navSeq) return;
+        box.replaceChildren(el('div', { class: 'card' }, [el('div', { class: 'err', text: e.message })]));
+      });
+    }
+    function draw(d) {
+      var nodes = [];
+      var rows = d.entries.filter(function (e) { return searching() || hist.kind === 'ALL' || e.kind === hist.kind; });
+      if (searching()) {
+        var sums = [];
+        if (d.expenseSatang) sums.push('รายจ่าย ' + money(d.expenseSatang, '−'));
+        if (d.incomeSatang) sums.push('รายรับ ' + money(d.incomeSatang, '+'));
+        nodes.push(el('div', { class: 'hint', text: rows.length ? 'พบ ' + (d.truncated ? '200+' : rows.length) + ' รายการ' + (sums.length ? ' · ' + sums.join(' · ') : '') + (d.truncated ? ' (แสดง 200 รายการล่าสุด)' : '') : '' }));
       }
-      list.appendChild(entryRow(e, false));
+      if (!rows.length) {
+        nodes.push(el('div', { class: 'card' }, [el('div', { class: 'empty', text: searching() ? 'ไม่พบรายการที่ตรงกัน ลองค้นด้วยชื่อหมวด หรือจำนวนเงิน' : 'ไม่มีรายการใน' + monthLabel(month) })]));
+      } else {
+        var card = el('section', { class: 'card', style: 'gap:4px' });
+        var day = null, list = null;
+        rows.forEach(function (e) {
+          if (e.date !== day) {
+            day = e.date;
+            var net = rows.filter(function (x) { return x.date === day; })
+              .reduce(function (t, x) { return t + (x.kind === 'INCOME' ? x.amountSatang : -x.amountSatang); }, 0);
+            card.appendChild(el('div', { class: 'daysep' }, [el('span', { text: searching() ? fullDay(day) : dayLabel(day) }), el('span', { class: 'num' + (net > 0 ? ' in' : ''), text: money(net, net > 0 ? '+' : net < 0 ? '−' : '') })]));
+            list = el('div', {});
+            card.appendChild(list);
+          }
+          list.appendChild(entryRow(e, false));
+        });
+        nodes.push(card);
+      }
+      box.replaceChildren.apply(box, nodes);
+    }
+
+    search.addEventListener('input', function () { hist.q = search.value; clearTimeout(timer); timer = setTimeout(refresh, 300); });
+    search.addEventListener('search', function () { hist.q = search.value; clearTimeout(timer); refresh(); });
+    cat.addEventListener('change', function () { hist.category = cat.value; refresh(); });
+    drawSeg();
+    show([switcher, el('div', { class: 'filters' }, [search, cat, seg]), box]);
+    refresh();
+  }
+
+  // ───────── export (CSV) ─────────
+  function openExport() {
+    chrome(null); bar('ส่งออก CSV', loadHistory);
+    var scope = 'month';
+    var seg = el('div', { class: 'seg', role: 'group', 'aria-label': 'ช่วงที่ส่งออก' });
+    var err = el('div', { class: 'err', role: 'alert' });
+    var result = el('div', { class: 'linkbox' });
+    var make = el('button', { class: 'cta', type: 'button', text: 'สร้างลิงก์ดาวน์โหลด' });
+
+    function drawSeg() {
+      seg.replaceChildren();
+      [['month', monthLabel(month)], ['year', 'ปีนี้'], ['all', 'ทั้งหมด']].forEach(function (o) {
+        seg.appendChild(el('button', { type: 'button', 'aria-pressed': String(scope === o[0]), text: o[1], onclick: function () { scope = o[0]; result.replaceChildren(); err.textContent = ''; drawSeg(); } }));
+      });
+    }
+    make.addEventListener('click', function () {
+      make.disabled = true; err.textContent = ''; result.replaceChildren();
+      post('api/ledger/export-link', { scope: scope, month: month }).then(function (r) {
+        make.disabled = false;
+        var go = el('button', { class: 'cta', type: 'button', text: 'ดาวน์โหลด CSV' });
+        go.addEventListener('click', function () {
+          if (DEMO) { toast('โหมดตัวอย่าง: ไม่สร้างไฟล์จริง'); return; }
+          // the file opens in the phone's own browser: LINE's in-app browser does not handle downloads well
+          if (window.liff && liff.openWindow) liff.openWindow({ url: r.url, external: true }); else window.open(r.url, '_blank');
+        });
+        result.replaceChildren(el('div', { text: r.label + ' · ' + r.count.toLocaleString('th-TH') + ' รายการ', style: 'font-weight:600' }), go,
+          el('div', { class: 'hint', text: 'ลิงก์ใช้ได้ ' + r.minutes + ' นาที ขอลิงก์ใหม่ได้เสมอ' }));
+      }).catch(function (e) { err.textContent = e.message; make.disabled = false; });
     });
-    nodes.push(card);
-    show(nodes);
+    drawSeg();
+    show([el('section', { class: 'card' }, [
+      el('span', { class: 'lbl2', text: 'เลือกช่วงที่ต้องการ' }), seg,
+      el('p', { class: 'hint', style: 'margin:0', text: 'ได้ไฟล์ .csv มีวันที่ ประเภท หมวด จำนวนเงิน โน้ต และที่มา เปิดใน Excel หรือ Google Sheets ได้' })
+    ]), err, make, result]);
   }
 
   // ───────── report ─────────
@@ -772,6 +857,10 @@
         ['EXPENSE', 'shopping', 21600, 17, 'เสื้อยืด'], ['EXPENSE', 'fun', 39000, 16, 'ดูหนัง'], ['EXPENSE', 'food', 610000, 10, ''],
         ['EXPENSE', 'transport', 306600, 8, 'เติมน้ำมัน'], ['EXPENSE', 'housing', 300000, 3, 'ค่าห้อง'], ['EXPENSE', 'shopping', 226400, 5, '']];
       this.entries = rows.map(function (r, i) { return { id: i + 1, kind: r[0], category: r[1], amountSatang: r[2], date: d(r[3]), note: r[4] || null, source: i === 2 ? 'SLIP' : 'LIFF' }; });
+      var lastMonth = function (day) { return iso(new Date(y, m - 1, day)); };
+      this.entries.push({ id: 90, kind: 'EXPENSE', category: 'bills', amountSatang: 118000, date: lastMonth(18), note: 'ค่าไฟ', source: 'SLIP' },
+        { id: 91, kind: 'EXPENSE', category: 'food', amountSatang: 25000, date: lastMonth(9), note: 'ข้าวเย็นกับเพื่อน', source: 'CHAT' },
+        { id: 92, kind: 'INCOME', category: 'salary', amountSatang: 3000000, date: lastMonth(1), note: 'เงินเดือน', source: 'LIFF' });
       this.budgets = [{ category: 'food', limitSatang: 800000 }, { category: 'transport', limitSatang: 300000 }, { category: 'shopping', limitSatang: 400000 }];
       function sub(id, name, amt, cycle, day, mon, next, trial, cat) {
         var nd = parseIso(next), dl = Math.round((nd - new Date(y, m, t.getDate())) / 864e5);
@@ -803,6 +892,21 @@
         return { month: mk, incomeSatang: total('INCOME', inMonth), expenseSatang: total('EXPENSE', inMonth),
           budgets: this.budgets.map(function (bg) { return { category: bg.category, limitSatang: bg.limitSatang, spentSatang: inMonth.filter(function (e) { return e.kind === 'EXPENSE' && e.category === bg.category; }).reduce(function (s, e) { return s + e.amountSatang; }, 0) }; }),
           subscriptions: { count: this.subs.length, monthlySatang: monthly, next: next }, recent: sorted.slice(0, 5) };
+      }
+      if (path.indexOf('api/ledger/search') === 0) {
+        var qs = new URLSearchParams(path.split('?')[1] || ''), qq = (qs.get('q') || '').toLowerCase(), qcat = qs.get('category') || '', qkind = qs.get('kind') || '';
+        var found = this.entries.filter(function (e) {
+          if (qkind && e.kind !== qkind) return false;
+          if (qcat && e.category !== qcat) return false;
+          if (!qq) return true;
+          return (e.note || '').toLowerCase().indexOf(qq) >= 0 || catName(e.category).toLowerCase().indexOf(qq) >= 0 || String(e.amountSatang / 100) === qq;
+        }).sort(function (a, c) { return a.date < c.date ? 1 : a.date > c.date ? -1 : c.id - a.id; });
+        return { count: found.length, truncated: false, entries: found,
+          incomeSatang: total('INCOME', found), expenseSatang: total('EXPENSE', found) };
+      }
+      if (path.indexOf('api/ledger/export-link') === 0) {
+        var n = b.scope === 'all' ? this.entries.length : b.scope === 'year' ? this.entries.filter(function (e) { return e.date.slice(0, 4) === String(new Date().getFullYear()); }).length : inMonth.length;
+        return { url: '#demo', count: n, label: b.scope === 'all' ? 'ทั้งหมด' : b.scope === 'year' ? 'ปี ' + (new Date().getFullYear() + 543) : monthLabel(mk), minutes: 10 };
       }
       if (path.indexOf('api/ledger/entries/delete') === 0) { this.entries = this.entries.filter(function (e) { return e.id !== b.id; }); return { deleted: true }; }
       if (path.indexOf('api/ledger/entries') === 0 && b) {
@@ -847,6 +951,7 @@
   buildTabs();
   function start(q) {
     var tab = q && q.get('tab');
+    if (tab === 'history' && q && q.get('q')) hist.q = q.get('q').slice(0, 60);
     if (tab === 'new') { current = 'home'; return openEntryForm(null, q.get('kind') === 'income' ? 'INCOME' : 'EXPENSE'); }
     if (tab === 'budget') {   // rich menu: straight to the budget form, back goes to the home screen
       current = 'home'; chrome(null);

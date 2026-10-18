@@ -194,6 +194,39 @@ public static class LedgerCards
         return Flex($"ทดลองฟรี {s.Name} ใกล้หมด", Bubble(Col("sm", rows), new[] { PostbackBtn("ใช้ต่อ", "keep:" + s.Id, primary: true), PostbackBtn("เลิกใช้ก่อนโดนตัด", "stop:" + s.Id) }));
     }
 
+    public static object ExportReady(string label, int count, string url, int minutes)
+    {
+        var rows = new object[]
+        {
+            T("ไฟล์ CSV พร้อมแล้ว", Muted, "sm", "bold"),
+            T(label, Ink, "xl", "bold"),
+            T($"{count:N0} รายการ", Ink, "md"),
+            T($"ลิงก์ใช้ได้ {minutes} นาที เปิดด้วยเบราว์เซอร์แล้วไฟล์จะดาวน์โหลดเอง (เปิดใน Excel / Google Sheets ได้)", Muted, "xs")
+        };
+        return Flex("ไฟล์ CSV " + label, Bubble(Col("sm", rows), new[] { UriBtn("ดาวน์โหลด CSV", url) }));
+    }
+
+    public static object SearchResult(string text, IReadOnlyList<LedgerEntry> rows, bool truncated, DateOnly today, string? liffUrl)
+    {
+        var expense = rows.Where(r => r.Kind == "EXPENSE").Sum(r => r.AmountSatang);
+        var income = rows.Where(r => r.Kind == "INCOME").Sum(r => r.AmountSatang);
+        var items = new List<object>
+        {
+            T($"ค้นหา \"{Trunc(text, 30)}\"", Muted, "sm", "bold"),
+            T((truncated ? "200+" : rows.Count.ToString()) + " รายการ", Ink, "xl", "bold")
+        };
+        if (expense > 0) items.Add(T("รายจ่ายรวม −฿" + Money.Format(expense), Ink, "sm"));
+        if (income > 0) items.Add(T("รายรับรวม +฿" + Money.Format(income), Green, "sm"));
+        items.Add(Sep());
+        foreach (var e in rows.Take(8))
+            items.Add(Row(
+                Col("none", T(e.Note ?? LedgerCategories.Name(e.Category), Ink, "sm", "bold"), T(DayLabel(e.OccurredOn, today) + " · " + LedgerCategories.Name(e.Category), Muted, "xs")),
+                T(Signed(e.Kind, e.AmountSatang), e.Kind == "INCOME" ? Green : Ink, "sm", "bold", flex: 0, align: "end")));
+        if (rows.Count > 8) items.Add(T($"และอีก {(truncated ? "มาก" : (rows.Count - 8).ToString())} รายการ", Muted, "xs"));
+        var footer = liffUrl == null ? null : new[] { UriBtn("ดูทั้งหมดในแอป", liffUrl + "?tab=history&q=" + Uri.EscapeDataString(text)) };
+        return Flex("ผลค้นหา " + text, Bubble(Col("sm", items.ToArray()), footer));
+    }
+
     public const string HelpText =
         "จดรายการ\n" +
         "• กาแฟ 65 → รายจ่าย\n" +
@@ -205,5 +238,8 @@ public static class LedgerCards
         "• สมาชิก Adobe 7600 รายปี 12/3\n" +
         "• ทดลอง Canva 300 ถึง 24/10\n" +
         "• สมาชิก (ดูทั้งหมด) · เลิก Spotify\n\n" +
+        "ค้นหาและส่งออก\n" +
+        "• ค้นหา ค่าไฟ · ค้นหา อาหาร · ค้นหา 1250\n" +
+        "• ส่งออก (เดือนนี้) · ส่งออก ปีนี้ · ส่งออก ทั้งหมด → ไฟล์ CSV\n\n" +
         "อื่นๆ: สรุป · ลบล่าสุด";
 }

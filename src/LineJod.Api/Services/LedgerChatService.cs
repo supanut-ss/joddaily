@@ -28,6 +28,8 @@ public class LedgerChatService(AppDbContext db, LedgerService ledger, IOptions<A
             StopSubscriptionCommand c => await StopByNameAsync(user, c.Name),
             SummaryCommand => await SummaryAsync(user, today),
             UndoLastCommand => await UndoLastAsync(user),
+            ExportCommand c => await ExportAsync(user, c.Scope, today),
+            SearchCommand c => await SearchAsync(user, c.Text, today),
             HelpCommand => One(LedgerCards.Text(LedgerCards.HelpText)),
             InvalidCommand c => One(LedgerCards.Text(c.Hint)),
             _ => new List<object>()
@@ -155,6 +157,34 @@ public class LedgerChatService(AppDbContext db, LedgerService ledger, IOptions<A
         s.Active = false;
         await db.SaveChangesAsync();
         return One(LedgerCards.Text($"หยุด {s.Name} แล้ว ประวัติที่จดไว้ยังอยู่ครบ"));
+    }
+
+    // ---- search / export ----
+
+    private async Task<List<object>> SearchAsync(AppUser user, string text, DateOnly today)
+    {
+        text = text.Length > 60 ? text[..60] : text;
+        const int limit = 200;
+        var rows = await ledger.SearchAsync(user.Id, new SearchFilter(text), limit);
+        if (rows.Count == 0) return One(LedgerCards.Text($"ไม่พบรายการที่ตรงกับ \"{text}\" ลองค้นด้วยชื่อหมวด (เช่น อาหาร) หรือจำนวนเงิน (เช่น 1250)"));
+        return One(LedgerCards.SearchResult(text, rows, rows.Count == limit, today, LiffUrl));
+    }
+
+    private async Task<List<object>> ExportAsync(AppUser user, string scope, DateOnly today)
+    {
+        var baseUrl = options.Value.App.PublicBaseUrl.TrimEnd('/');
+        var secret = options.Value.Line.ChannelSecret;
+        if (baseUrl.Length == 0 || secret.Length == 0) return One(LedgerCards.Text("ยังส่งออกไม่ได้ เพราะยังไม่ได้ตั้งค่าลิงก์ดาวน์โหลดของระบบ"));
+
+        var (from, to, label) = LedgerService.ExportScope(scope, null, today);
+        var count = await ledger.CountAsync(user.Id, from, to);
+        if (count == 0) return One(LedgerCards.Text("ไม่มีรายการในช่วง" + label));
+        if (count > LedgerService.MaxExportRows) return One(LedgerCards.Text("รายการมากเกินไป ลอง ส่งออก ปีนี้ หรือเดือนนี้แทน"));
+
+        var token = ExportToken.Create(user.Id, from, to, DateTime.UtcNow, secret);
+        // openExternalBrowser: LINE's in-app browser handles file downloads badly, the phone's own browser does not
+        var url = $"{baseUrl}/export/{token}?openExternalBrowser=1";
+        return One(LedgerCards.ExportReady(label, count, url, (int)ExportToken.Lifetime.TotalMinutes));
     }
 
     // ---- summary ----

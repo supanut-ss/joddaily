@@ -6,6 +6,7 @@ public class AppSettings
     public LineSection Line { get; set; } = new();
     public LiffSection Liff { get; set; } = new();
     public JobsSection Jobs { get; set; } = new();
+    public AppSection App { get; set; } = new();
 }
 
 public class LineSection
@@ -23,4 +24,9 @@ public class LiffSection
 public class JobsSection
 {
     public string Key { get; set; } = "";
+}
+
+public class AppSection
+{
+    public string PublicBaseUrl { get; set; } = "";   // https://<this host>, used in links sent to users (CSV download)
 }
