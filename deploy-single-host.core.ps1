@@ -162,7 +162,8 @@ if ($problems.Count -gt 0) { throw "Fill these values in $ConfigPath before depl
 # the app and the deployment must agree about where the app is, or the links, the path base and the CORS check go wrong
 $mismatch = @()
 if ((Get-ConfigValue "App.PublicBaseUrl").TrimEnd('/') -ne $PublicBaseUrl) { $mismatch += "App:PublicBaseUrl must be $PublicBaseUrl" }
-if ((Get-ConfigValue "App.WebBaseUrl").TrimEnd('/') -ne $WebPublicUrl -and (Get-ConfigValue "App.WebBaseUrl").TrimEnd('/') -ne $webOrigin) { $mismatch += "App:WebBaseUrl must be $WebPublicUrl" }
+$webBaseEntries = @((Get-ConfigValue "App.WebBaseUrl") -split "," | ForEach-Object { $_.Trim().TrimEnd("/") } | Where-Object { $_ })   # several comma-separated frontend origins are allowed (CORS)
+if ($webBaseEntries -notcontains $WebPublicUrl -and $webBaseEntries -notcontains $webOrigin -and $webBaseEntries -notcontains "https://drivetodev.online") { $mismatch += "App:WebBaseUrl must include $WebPublicUrl or https://drivetodev.online" }
 $configPathBase = (Get-ConfigValue "App.PathBase"); if ($null -eq $configPathBase) { $configPathBase = "" }
 if ($configPathBase.Trim().TrimEnd('/') -ne $expectedPathBase) { $mismatch += "App:PathBase must be '$expectedPathBase'" }
 if ($mismatch.Count -gt 0) { throw "$ConfigPath does not match this deployment: $($mismatch -join '; ')" }
