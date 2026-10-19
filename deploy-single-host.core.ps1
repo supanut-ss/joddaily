@@ -114,7 +114,9 @@ function Deploy-Web {
     $webProblems = @()
     try {
         $page = Invoke-WebRequest -Uri "$WebPublicUrl/" -UseBasicParsing -TimeoutSec 30
-        if ($page.Content -notmatch "config\.js") { $webProblems += "$WebPublicUrl/ does not look like the JodDaily page" }
+        if ($page.Content -notmatch "JodDaily") { $webProblems += "$WebPublicUrl/ does not look like the JodDaily page" }
+        $appPage = Invoke-WebRequest -Uri "$WebPublicUrl/app/" -UseBasicParsing -TimeoutSec 30
+        if ($appPage.Content -notmatch "config\.js") { $webProblems += "$WebPublicUrl/app/ does not look like the JodDaily app" }
     } catch { $webProblems += "$WebPublicUrl/ -> $($_.Exception.Message)" }
     try {
         $cfgJs = Invoke-WebRequest -Uri "$WebPublicUrl/config.js" -UseBasicParsing -TimeoutSec 30

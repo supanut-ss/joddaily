@@ -3,1444 +3,188 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#14201b" media="(prefers-color-scheme: dark)">
-<title>จดจ่าย</title>
+<meta name="theme-color" content="#F5FAF0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B1A10" media="(prefers-color-scheme: dark)">
+<title>JodDaily — จดรายรับรายจ่ายในแชท LINE</title>
+<meta name="description" content="พิมพ์ในแชทบรรทัดเดียว JodDaily จดรายรับรายจ่าย ตั้งงบ เตือนค่าสมาชิก และส่งออก CSV ให้ในบอท LINE">
 <link rel="icon" type="image/png" href="favicon-48.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600&display=swap">
+<script>
+  // The app itself lives in /app/. LINE opens the LIFF endpoint (this address) inside LINE, or with LIFF parameters: pass those on to the app.
+  if (/Line\//i.test(navigator.userAgent) || /[?&](liff\.state|liffClientId|liffRedirectUri|code|tab|demo)=/.test(location.search)) {
+    location.replace('app/' + location.search + location.hash);
+  }
+</script>
 <style>
-  /* Personal ledger LIFF page. Tokens follow the "จดจ่าย" design: green primary, expenses in the normal text colour (− sign),
-     income in green (+ sign), red only for over-budget and destructive actions. */
   :root {
-    --bg:#F3F6F4; --card:#FFFFFF; --card-2:#EAF1ED; --text:#0F1F18; --muted:#55665D; --line:#D9E4DE;
-    --primary:#047857; --primary-soft:#D6F0E4; --on-primary:#FFFFFF;
-    --income:#047857; --danger:#C62828; --danger-soft:#FBE3E1; --warn:#B45309; --warn-soft:#FDF0DC;
-    --c-food:#059669; --c-transport:#0284C7; --c-bills:#D97706; --c-shopping:#7C3AED; --c-housing:#E11D48;
-    --c-health:#0D9488; --c-fun:#DB2777; --c-other:#64748B; --c-drink:#0891B2;
+    --bg:#F5FAF0; --card:#FFFFFF; --card-2:#E9F5E0; --text:#0F2417; --muted:#546A5A; --line:#D8E8CC;
+    --primary:#15803D; --primary-soft:#D9F3C9; --on-primary:#FFFFFF; --bright:#22C55E; --lime:#84CC16; --gold:#F5B301;
+    --hero-1:#E4F6D6; --hero-2:#F5FAF0;
     --f-display:"IBM Plex Sans Thai","Noto Sans Thai",system-ui,sans-serif;
     --f-body:"Noto Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg:#0C1411; --card:#14201B; --card-2:#1B2A23; --text:#E7F0EB; --muted:#9AB0A4; --line:#26372F;
-      --primary:#34D399; --primary-soft:#123A2B; --on-primary:#06251A;
-      --income:#34D399; --danger:#F87171; --danger-soft:#3A1A1A; --warn:#FBBF24; --warn-soft:#3A2C10;
-      --c-food:#10B981; --c-transport:#0EA5E9; --c-bills:#F59E0B; --c-shopping:#8B5CF6; --c-housing:#F43F5E;
-      --c-health:#14B8A6; --c-fun:#EC4899; --c-other:#64748B; --c-drink:#22D3EE;
-      color-scheme:dark;
+      --bg:#0B1A10; --card:#12251A; --card-2:#183122; --text:#E8F5EA; --muted:#9DB8A5; --line:#234130;
+      --primary:#4ADE80; --primary-soft:#14391F; --on-primary:#052E16; --bright:#4ADE80; --lime:#A3E635; --gold:#FBBF24;
+      --hero-1:#12301C; --hero-2:#0B1A10;
     }
   }
   * { box-sizing:border-box; }
-  [hidden] { display:none !important; }
-  html { -webkit-text-size-adjust:100%; }
-  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 var(--f-body); -webkit-tap-highlight-color:transparent;
-         padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left); }
-  button, input, select { font:inherit; color:inherit; }
-  button { cursor:pointer; touch-action:manipulation; }
-  button:disabled { opacity:.5; }
-  button:focus-visible, input:focus-visible, select:focus-visible { outline:3px solid var(--primary); outline-offset:2px; }
-  .num { font-variant-numeric:tabular-nums; }
-  h1, h2, h3 { font-family:var(--f-display); margin:0; line-height:1.3; }
-  h3 { font-size:15px; font-weight:600; }
-
-  .bar { position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:6px; min-height:52px; background:var(--card); border-bottom:1px solid var(--line);
-         padding:calc(6px + env(safe-area-inset-top)) max(10px, calc((100% - 560px) / 2 + 10px)) 6px; }
-  .bar .ttl { flex:1; font-family:var(--f-display); font-weight:600; font-size:17px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  main { max-width:560px; margin:0 auto; padding:12px 12px calc(96px + env(safe-area-inset-bottom)); display:grid; gap:12px; }
-  body.no-tabs main { padding-bottom:calc(24px + env(safe-area-inset-bottom)); }
-
-  svg.i { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex:none; }
-  .ib { display:inline-grid; place-items:center; width:44px; height:44px; padding:0; border:0; border-radius:12px; background:transparent; color:var(--text); flex:none; }
-  .ib:active { background:var(--card-2); }
-
-  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px; display:grid; gap:12px; }
-  .card-h { display:flex; justify-content:space-between; align-items:center; gap:8px; }
-  .link { border:0; background:none; color:var(--primary); font-weight:600; font-size:14px; padding:8px 4px; min-height:36px; }
-  .muted { color:var(--muted); }
-  .small { font-size:13px; }
-
-  .sum { background:var(--primary); color:var(--on-primary); border-radius:16px; padding:16px; display:grid; gap:12px; }
-  .sum .lbl { font-size:13px; opacity:.85; }
-  .sum .big { font-family:var(--f-display); font-size:32px; font-weight:700; line-height:1.15; }
-  .sum .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .sum .row > div { background:rgba(255,255,255,.15); border-radius:12px; padding:8px 12px; }
-  .sum .row b { display:block; font-family:var(--f-display); font-size:16px; }
-
-  .months { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-  .months strong { font-family:var(--f-display); font-size:16px; }
-  .months .ib { background:var(--card); border:1px solid var(--line); }
-
-  .bud { display:grid; gap:6px; }
-  .bud .t { display:flex; justify-content:space-between; gap:8px; font-size:14px; }
-  .track { height:8px; background:var(--card-2); border-radius:99px; overflow:hidden; }
-  .track i { display:block; height:100%; border-radius:99px; background:var(--primary); }
-  .track i.warn { background:var(--warn); } .track i.over { background:var(--danger); }
-  .pill { display:inline-block; font-size:11.5px; font-weight:600; padding:1px 8px; border-radius:99px; white-space:nowrap; background:var(--card-2); color:var(--muted); }
-  .pill.warn { background:var(--warn-soft); color:var(--warn); } .pill.over { background:var(--danger-soft); color:var(--danger); }
-  .pill.ok { background:var(--primary-soft); color:var(--primary); }
-
-  .tx { display:grid; grid-template-columns:40px 1fr auto; gap:12px; align-items:center; width:100%; padding:6px 0; border:0; background:none; text-align:left; min-height:52px; }
-  .tx + .tx { border-top:1px solid var(--line); }
-  .tx .grow { min-width:0; }
-  .tx .n { font-weight:600; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .tx .s { font-size:12.5px; color:var(--muted); }
-  .tx .v { font-family:var(--f-display); font-weight:600; text-align:right; display:grid; justify-items:end; gap:2px; }
-  .in { color:var(--income); }
-  .ic { width:40px; height:40px; border-radius:12px; display:grid; place-items:center; color:#fff; }
-  .ic svg.i { width:19px; height:19px; }
-  .av { width:40px; height:40px; border-radius:12px; display:grid; place-items:center; background:var(--card-2); color:var(--primary); font-family:var(--f-display); font-weight:700; font-size:17px; }
-  .daysep { display:flex; justify-content:space-between; font-size:13px; font-weight:600; color:var(--muted); padding:4px 2px 0; }
-  .empty { text-align:center; color:var(--muted); padding:20px 8px; display:grid; gap:10px; justify-items:center; }
-
-  .fab { position:fixed; right:max(16px, calc((100% - 560px) / 2 + 16px)); bottom:calc(84px + env(safe-area-inset-bottom)); width:56px; height:56px; border:0; border-radius:18px;
-         background:var(--primary); color:var(--on-primary); display:grid; place-items:center; box-shadow:0 10px 22px -8px rgba(4,120,87,.7); z-index:9; }
-  .fab svg.i { width:26px; height:26px; }
-
-  .tabs { position:fixed; left:0; right:0; bottom:0; z-index:10; background:var(--card); border-top:1px solid var(--line);
-          display:grid; grid-template-columns:repeat(5,1fr); padding:0 max(env(safe-area-inset-right), calc((100% - 560px) / 2)) env(safe-area-inset-bottom) max(env(safe-area-inset-left), calc((100% - 560px) / 2)); }
-  .tabs button { border:0; background:none; color:var(--muted); display:grid; justify-items:center; gap:2px; padding:8px 2px; font-size:12px; min-height:60px; }
-  .tabs button[aria-current="page"] { color:var(--primary); font-weight:600; }
-  body.no-tabs .tabs, body.no-tabs .fab { display:none; }
-
-  /* add / edit form */
-  .seg { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; background:var(--card-2); border-radius:12px; padding:3px; }
-  .seg button { border:0; background:transparent; color:var(--muted); font-weight:600; padding:8px; border-radius:10px; min-height:40px; }
-  .seg button[aria-pressed="true"] { background:var(--card); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,.14); }
-  .amount { text-align:center; display:grid; gap:2px; }
-  .amount small { color:var(--muted); font-size:12.5px; }
-  .amount output { font-family:var(--f-display); font-size:clamp(34px,10vw,44px); font-weight:700; line-height:1.15; }
-  .cats { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
-  .cat { border:1px solid var(--line); background:var(--card); border-radius:14px; padding:8px 2px; display:grid; justify-items:center; gap:4px; font-size:12.5px; min-height:68px; }
-  .cat .ic { width:32px; height:32px; border-radius:10px; }
-  .cat .ic svg.i { width:16px; height:16px; }
-  .cat[aria-pressed="true"] { border-color:var(--primary); background:var(--primary-soft); font-weight:600; }
-  .fields { display:grid; grid-template-columns:auto 1fr; gap:8px; }
-  .field { display:grid; gap:4px; }
-  .field label, .lbl2 { font-size:13px; color:var(--muted); font-weight:500; }
-  .inp { width:100%; min-height:44px; border:1px solid var(--line); background:var(--card); border-radius:12px; padding:8px 12px; }
-  .keys { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
-  .keys button { border:0; border-radius:14px; background:var(--card); font-family:var(--f-display); font-size:21px; font-weight:600; min-height:52px; display:grid; place-items:center; }
-  .keys button:active { background:var(--card-2); }
-  .cta { width:100%; min-height:50px; border:0; border-radius:14px; background:var(--primary); color:var(--on-primary); font-weight:700; font-size:16px; }
-  .ghost { width:100%; min-height:46px; border:1px solid var(--line); border-radius:14px; background:transparent; font-weight:600; }
-  .ghost.danger { color:var(--danger); border-color:var(--danger); }
-  .err { color:var(--danger); font-size:14px; text-align:center; }
-  .check { display:flex; align-items:center; gap:10px; min-height:44px; }
-  .check input { width:22px; height:22px; accent-color:var(--primary); }
-
-  /* report */
-  .donut { display:grid; grid-template-columns:132px 1fr; gap:14px; align-items:center; }
-  .donut svg { width:132px; height:132px; transform:rotate(-90deg); }
-  .donut circle { fill:none; stroke-width:5; }
-  .legend { display:grid; gap:6px; font-size:13px; }
-  .legend div { display:grid; grid-template-columns:10px 1fr auto; gap:8px; align-items:center; }
-  .legend i { width:10px; height:10px; border-radius:3px; }
-  .bars { display:grid; gap:2px; align-items:end; height:96px; border-bottom:1px solid var(--line); }
-  .bars i { display:block; background:var(--primary); border-radius:3px 3px 0 0; min-height:1px; opacity:.75; }
-  .bars i.today { opacity:1; }
-  .axis { display:flex; justify-content:space-between; font-size:11px; color:var(--muted); }
-
-  .alert { display:flex; gap:10px; align-items:flex-start; background:var(--danger-soft); border-radius:14px; padding:12px 14px; font-size:14px; }
-  .alert svg.i { color:var(--danger); }
-  .alert b { display:block; }
-
-  .toast { position:fixed; left:12px; right:12px; bottom:calc(84px + env(safe-area-inset-bottom)); max-width:536px; margin:0 auto; z-index:20; background:var(--text); color:var(--bg);
-           border-radius:14px; padding:10px 8px 10px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:14px; }
-  body.no-tabs .toast { bottom:calc(16px + env(safe-area-inset-bottom)); }
-  .toast button { border:0; background:none; color:var(--primary-soft); font-weight:700; min-height:40px; padding:0 10px; }
-  .tabs button { font-size:11.5px; }
-  .acctrow { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; }
-  .acctrow::-webkit-scrollbar { display:none; }
-  .chipbtn { flex:none; min-height:40px; padding:6px 14px; border:1px solid var(--line); background:var(--card); border-radius:12px; font-weight:500; }
-  .chipbtn[aria-pressed="true"] { border-color:var(--primary); background:var(--primary-soft); font-weight:600; }
-  .v.neg { color:var(--danger); }
-  .two { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .results { display:grid; gap:12px; }
-  .filters { display:grid; gap:10px; }
-  input[type="search"].inp { -webkit-appearance:none; appearance:none; }
-  .hint { color:var(--muted); font-size:13px; padding:0 2px; }
-  .linkbox { display:grid; gap:10px; text-align:center; }
-  .loading { text-align:center; color:var(--muted); padding:40px 0; }
-
-  @media (prefers-reduced-motion:no-preference) {
-    .cat, .seg button, .keys button, .tabs button { transition:background-color .15s, border-color .15s, color .15s; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; background:var(--bg); color:var(--text); font:400 16px/1.65 var(--f-body); -webkit-text-size-adjust:100%; }
+  a { color:inherit; }
+  .wrap { max-width:1040px; margin:0 auto; padding:0 16px; }
+  header.top { position:sticky; top:0; z-index:5; background:color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter:blur(8px); border-bottom:1px solid var(--line); }
+  header.top .wrap { display:flex; align-items:center; justify-content:space-between; height:56px; }
+  .brand { display:flex; align-items:center; gap:10px; font:700 18px var(--f-display); text-decoration:none; }
+  .brand img { width:32px; height:32px; border-radius:9px; }
+  .btn { display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:0 22px; border-radius:999px; background:var(--primary); color:var(--on-primary);
+         font:600 16px var(--f-display); text-decoration:none; border:2px solid var(--primary); }
+  .btn.ghost { background:transparent; color:var(--primary); }
+  .btn:focus-visible, a:focus-visible { outline:3px solid var(--gold); outline-offset:2px; }
+  .hero { background:linear-gradient(180deg, var(--hero-1), var(--hero-2)); padding:40px 0 56px; }
+  .hero .wrap { display:grid; gap:32px; align-items:center; }
+  .pill { display:inline-block; padding:4px 14px; border-radius:999px; background:var(--primary-soft); color:var(--primary); font:600 13px var(--f-display); }
+  h1 { font:700 clamp(34px, 8vw, 54px)/1.2 var(--f-display); margin:14px 0 12px; }
+  h1 em { font-style:normal; color:var(--primary); }
+  .lead { font-size:18px; color:var(--muted); max-width:34em; margin:0 0 22px; }
+  .cta { display:flex; flex-wrap:wrap; gap:12px; }
+  .ticks { display:flex; flex-wrap:wrap; gap:8px 18px; list-style:none; padding:0; margin:22px 0 0; color:var(--muted); font-size:14px; }
+  .ticks li::before { content:"✓ "; color:var(--primary); font-weight:700; }
+  .phone { width:min(300px, 100%); margin:0 auto; background:var(--card); border:1px solid var(--line); border-radius:32px; padding:14px; box-shadow:0 24px 50px rgba(21,128,61,.18); }
+  .phone .bar { display:flex; align-items:center; gap:8px; font:600 14px var(--f-display); padding:4px 4px 12px; border-bottom:1px solid var(--line); }
+  .phone .bar img { width:24px; height:24px; border-radius:7px; }
+  .chat { display:grid; gap:10px; padding-top:14px; }
+  .bubble { max-width:82%; padding:8px 14px; border-radius:18px; font-size:15px; line-height:1.45; }
+  .me { justify-self:end; background:var(--bright); color:#052E16; border-bottom-right-radius:6px; font-weight:600; }
+  .bot { justify-self:start; width:92%; background:var(--card-2); border-bottom-left-radius:6px; }
+  .bot b { display:block; font:700 15px var(--f-display); }
+  .bot .amt { font:700 22px var(--f-display); color:var(--primary); }
+  .bot .chip { display:inline-block; margin-top:4px; padding:2px 12px; border:1px solid var(--line); border-radius:999px; font-size:13px; background:var(--card); }
+  section { padding:56px 0; }
+  h2 { font:700 clamp(26px, 5vw, 36px)/1.25 var(--f-display); margin:0 0 8px; text-align:center; }
+  .sub-h { text-align:center; color:var(--muted); margin:0 auto 32px; max-width:34em; }
+  .steps { display:grid; gap:16px; counter-reset:s; }
+  .step { background:var(--card); border:1px solid var(--line); border-radius:20px; padding:22px; }
+  .step::before { counter-increment:s; content:counter(s); display:grid; place-items:center; width:36px; height:36px; border-radius:50%; background:var(--primary); color:var(--on-primary); font:700 17px var(--f-display); margin-bottom:10px; }
+  .step h3, .feat h3 { font:600 18px var(--f-display); margin:0 0 4px; }
+  .step p, .feat p { margin:0; color:var(--muted); font-size:15px; }
+  code { font-family:ui-monospace, Consolas, monospace; background:var(--primary-soft); color:var(--primary); padding:1px 8px; border-radius:8px; font-size:.92em; }
+  .alt { background:var(--card-2); }
+  .grid { display:grid; gap:14px; grid-template-columns:1fr; }
+  .feat { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:18px 20px; }
+  .feat .ic { font-size:26px; line-height:1; margin-bottom:8px; }
+  .cta-box { text-align:center; background:linear-gradient(135deg, var(--primary), #166534); color:#fff; border-radius:28px; padding:40px 20px; }
+  .cta-box h2 { color:#fff; }
+  .cta-box p { margin:0 auto 22px; max-width:30em; opacity:.92; }
+  .cta-box .btn { background:#fff; color:#14532D; border-color:#fff; }
+  footer { padding:28px 0 48px; color:var(--muted); font-size:14px; text-align:center; }
+  footer p { margin:4px auto; max-width:40em; }
+  @media (min-width:700px) {
+    .hero .wrap { grid-template-columns:1.15fr .85fr; }
+    .steps { grid-template-columns:repeat(3, 1fr); }
+    .grid { grid-template-columns:repeat(2, 1fr); }
   }
+  @media (min-width:960px) { .grid { grid-template-columns:repeat(3, 1fr); } }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior:auto; } }
 </style>
 </head>
 <body>
-<header class="bar"><span id="backSlot"></span><span class="ttl" id="ttl">จดจ่าย</span><span id="actSlot"></span></header>
-<main id="app"><div class="loading">กำลังโหลด…</div></main>
-<button class="fab" id="fab" type="button" aria-label="จดรายการใหม่" hidden></button>
-<nav class="tabs" id="tabs" aria-label="เมนูหลัก"></nav>
-<div class="toast" id="toast" role="status" hidden><span id="toastMsg"></span><button type="button" id="toastAct" hidden></button></div>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="logo.png" alt="" width="32" height="32">JodDaily</a>
+    <a class="btn" href="#start" style="min-height:38px;padding:0 18px;font-size:15px">เริ่มใช้งาน</a>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="wrap">
+      <div>
+        <span class="pill">บอทจดบัญชีใน LINE</span>
+        <h1>จดรายรับรายจ่าย<br><em>แค่พิมพ์บรรทัดเดียว</em></h1>
+        <p class="lead">พิมพ์ <code>กาแฟ 65</code> ในแชท บอทจดลงหมวดให้เอง ดูสรุป ตั้งงบ และเตือนค่าสมาชิกให้ทุกวัน</p>
+        <div class="cta">
+          <a class="btn js-add" href="#start">เพิ่มเพื่อนบอท</a>
+          <a class="btn ghost" href="#how">ดูวิธีใช้</a>
+        </div>
+        <ul class="ticks"><li>ใช้ฟรี</li><li>ไม่ต้องโหลดแอป</li><li>จดได้ทั้งในแชทและหน้าสรุป</li></ul>
+      </div>
+      <div class="phone" aria-label="ตัวอย่างการสนทนากับบอท">
+        <div class="bar"><img src="logo.png" alt="" width="24" height="24">JodDaily</div>
+        <div class="chat">
+          <div class="bubble me">กาแฟ 65</div>
+          <div class="bubble bot"><b>บันทึกแล้ว · เครื่องดื่ม</b><span class="amt">−฿65</span><br><span class="chip">↩ ยกเลิก</span> <span class="chip">เปลี่ยนหมวด</span></div>
+          <div class="bubble me">ข้าวมันไก่ 60 น้ำ 15</div>
+          <div class="bubble bot"><b>บันทึก 2 รายการ</b>อาหาร −฿60 · เครื่องดื่ม −฿15</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section id="how">
+    <div class="wrap">
+      <h2>3 ขั้นตอน เริ่มได้ใน 1 นาที</h2>
+      <p class="sub-h">ไม่ต้องสมัคร ใช้บัญชี LINE ของคุณได้เลย</p>
+      <div class="steps">
+        <div class="step"><h3>เพิ่มเพื่อนบอท</h3><p>กดปุ่มเพิ่มเพื่อน แล้วเปิดห้องแชท 1:1 กับ JodDaily</p></div>
+        <div class="step"><h3>พิมพ์สิ่งที่จ่าย</h3><p>เช่น <code>กาแฟ 65</code> หรือ <code>เงินเดือน +30000</code> เพิ่มวันที่ได้ เช่น <code>เมื่อวาน</code></p></div>
+        <div class="step"><h3>ดูสรุปและตั้งงบ</h3><p>กดเมนูด้านล่างเพื่อดูสรุปเดือนนี้ ประวัติ และตั้งงบรายหมวด</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="alt">
+    <div class="wrap">
+      <h2>ครบ จบในแชท</h2>
+      <p class="sub-h">ทุกอย่างที่จำเป็นสำหรับบัญชีส่วนตัว ไม่มีอะไรเกินจำเป็น</p>
+      <div class="grid">
+        <div class="feat"><div class="ic">💬</div><h3>จดด้วยการพิมพ์</h3><p>หลายรายการในประโยคเดียว เดาหมวดให้ และกดยกเลิกหรือเปลี่ยนหมวดได้ทันที</p></div>
+        <div class="feat"><div class="ic">🏦</div><h3>หลายบัญชี + โอนย้าย</h3><p>เงินสด ธนาคาร บัตร e-wallet พร้อมยอดคงเหลือและการโอนระหว่างบัญชี</p></div>
+        <div class="feat"><div class="ic">🔁</div><h3>รายการประจำ</h3><p>ค่าเช่า เงินเดือน รายสัปดาห์ รายเดือน รายปี บันทึกให้เองตามวัน</p></div>
+        <div class="feat"><div class="ic">🔔</div><h3>เตือนค่าสมาชิก</h3><p>Netflix, Spotify ก่อนตัดเงิน 1 วัน และเตือนก่อนจบช่วงทดลองฟรี</p></div>
+        <div class="feat"><div class="ic">🎯</div><h3>งบรายหมวด</h3><p>แจ้งเมื่อใช้ถึง 80% และเมื่อเกินงบ เดือนละครั้งต่อระดับ ไม่รบกวนซ้ำ</p></div>
+        <div class="feat"><div class="ic">📊</div><h3>สรุปและรายงาน</h3><p>แยกตามหมวด รายวัน ค่าเฉลี่ยต่อวัน ดูย้อนหลังได้ทุกเดือน</p></div>
+        <div class="feat"><div class="ic">🔍</div><h3>ค้นหา</h3><p>หาจากโน้ต ชื่อหมวด หรือจำนวนเงิน ทั้งในแอปและในแชท</p></div>
+        <div class="feat"><div class="ic">📁</div><h3>ส่งออก CSV</h3><p>ลิงก์ดาวน์โหลดเฉพาะคุณ หมดอายุใน 10 นาที เปิดด้วย Excel ภาษาไทยได้</p></div>
+        <div class="feat"><div class="ic">⏰</div><h3>เตือนตามเวลาที่ชอบ</h3><p>เลือกชั่วโมงที่ให้เตือน เปิดปิดแต่ละประเภท และเตือนเมื่อวันนี้ยังไม่ได้จด</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="start">
+    <div class="wrap">
+      <div class="cta-box">
+        <h2>เริ่มจดวันนี้</h2>
+        <p>เพิ่มเพื่อนบอท แล้วลองพิมพ์รายจ่ายแรกของวัน</p>
+        <a class="btn js-add" href="#start">เพิ่มเพื่อนบอท JodDaily</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>เก็บข้อมูลเท่าที่จำเป็น: ชื่อโปรไฟล์ LINE และรายการที่คุณจดเอง ไม่ส่งต่อให้ผู้อื่น</p>
+    <p>บอทใช้ได้ในแชท 1:1 เท่านั้น ไม่ทำงานในกลุ่ม</p>
+    <p>© JodDaily</p>
+  </div>
+</footer>
 
 <script src="config.js"></script>
-<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script>
-(function () {
-  // Where the API is: window.JODDAILY_API from config.js (the page and the API are different sites).
-  // Without it (local preview) the API is taken to be next to the page: the folder of the page URL.
-  var API = (function () {
-    var configured = String(window.JODDAILY_API || '').trim();
-    if (configured) return configured.replace(/\/*$/, '/');
-    var p = location.pathname;
-    if (p.charAt(p.length - 1) === '/') return p;
-    var last = p.slice(p.lastIndexOf('/') + 1);
-    return last.indexOf('.') >= 0 ? p.slice(0, p.lastIndexOf('/') + 1) : p + '/';
+  // The add-friend buttons open the bot through its LIFF link; the LIFF id comes from the API (it is not a secret).
+  (function () {
+    var api = window.JODDAILY_API;
+    if (!api) return;
+    fetch(api.replace(/\/?$/, '/') + 'api/config').then(function (r) { return r.json(); }).then(function (c) {
+      if (!c || !c.liffId) return;
+      document.querySelectorAll('.js-add').forEach(function (a) { a.href = 'https://liff.line.me/' + encodeURIComponent(c.liffId); });
+    }).catch(function () { /* the buttons stay on the page anchor */ });
   })();
-  var DEMO = /[?&]demo=1\b/.test(location.search); // local preview with sample data, no LINE login
-  var app = document.getElementById('app');
-  var idToken = null;
-
-  // ───────── helpers ─────────
-  // Build DOM with textContent only: notes and subscription names are typed by the user.
-  function el(tag, props, children) {
-    var e = document.createElement(tag);
-    Object.keys(props || {}).forEach(function (k) {
-      if (k === 'class') e.className = props[k];
-      else if (k === 'text') e.textContent = props[k];
-      else if (k.indexOf('on') === 0) e.addEventListener(k.slice(2), props[k]);
-      else e.setAttribute(k, props[k]);
-    });
-    (children || []).forEach(function (c) { if (c) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
-    return e;
-  }
-  function baht(satang) {
-    return (satang / 100).toLocaleString('th-TH', { minimumFractionDigits: satang % 100 ? 2 : 0, maximumFractionDigits: 2 });
-  }
-  function money(satang, sign) { return (sign || '') + '฿' + baht(Math.abs(satang)); }
-  function approx(satang) { return money(Math.round(satang / 100) * 100); }
-  function show(nodes) { app.replaceChildren.apply(app, nodes); window.scrollTo(0, 0); }
-  function fail(text) { show([el('div', { class: 'card' }, [el('div', { class: 'err', text: text })])]); }
-
-  var TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-  var TH_MONTHS_FULL = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
-  function pad(n) { return (n < 10 ? '0' : '') + n; }
-  function iso(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
-  function parseIso(s) { var p = s.split('-'); return new Date(+p[0], +p[1] - 1, +(p[2] || 1)); }
-  function todayIso() { return iso(new Date()); }
-  function monthKey(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1); }
-  function shiftMonth(key, n) { var d = parseIso(key + '-01'); d.setMonth(d.getMonth() + n); return monthKey(d); }
-  function monthLabel(key) { var d = parseIso(key + '-01'); return TH_MONTHS_FULL[d.getMonth()] + ' ' + (d.getFullYear() + 543); }
-  function dayLabel(s) {
-    var t = todayIso(), y = new Date(); y.setDate(y.getDate() - 1);
-    if (s === t) return 'วันนี้';
-    if (s === iso(y)) return 'เมื่อวาน';
-    var d = parseIso(s); return d.getDate() + ' ' + TH_MONTHS[d.getMonth()];
-  }
-
-  // ───────── icons (constant SVG markup only, never user data) ─────────
-  var ICONS = {
-    food: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v20M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>',
-    cup: '<path d="M5 8h12v6a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5zM17 10h1.5a2.5 2.5 0 0 1 0 5H17M8 2v3M12 2v3"/>',
-    car: '<path d="M5 17h14v-5l-2-5H7l-2 5zM5 12h14M7 17v3M17 17v3"/>',
-    bolt: '<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',
-    bag: '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4ZM3 6h18M16 10a4 4 0 0 1-8 0"/>',
-    home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10"/>',
-    heart: '<path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7Z"/>',
-    film: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 12h18"/>',
-    dots: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
-    brief: '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>',
-    laptop: '<rect x="4" y="4" width="16" height="11" rx="2"/><path d="M2 20h20"/>',
-    gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5C10 3 12 8 12 8s2-5 4.5-5a2.5 2.5 0 0 1 0 5"/>',
-    plus: '<path d="M12 5v14M5 12h14"/>',
-    pie: '<path d="M21.2 15.9A10 10 0 1 1 8 2.8M22 12A10 10 0 0 0 12 2v10z"/>',
-    list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
-    wallet: '<path d="M20 12V8H6a2 2 0 0 1 0-4h12v4M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/>',
-    repeat: '<path d="m17 2 4 4-4 4M3 11V10a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 0 1-4 4H3"/>',
-    back: '<path d="m15 18-6-6 6-6"/>',
-    next: '<path d="m9 18 6-6-6-6"/>',
-    del: '<path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM18 9l-6 6M12 9l6 6"/>',
-    card: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
-    phone: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
-    bank: '<path d="M3 10l9-6 9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 21h18"/>',
-    download: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
-    bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/>'
-  };
-  function svgIcon(name) {
-    var s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    s.setAttribute('class', 'i'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('aria-hidden', 'true');
-    s.innerHTML = ICONS[name];
-    return s;
-  }
-  function ibtn(name, label, onClick) {
-    var b = el('button', { class: 'ib', type: 'button', 'aria-label': label, title: label }, [svgIcon(name)]);
-    b.addEventListener('click', onClick);
-    return b;
-  }
-
-  // Category keys match LedgerCategories on the server.
-  var CATS = {
-    food: ['อาหาร', 'food', '--c-food'], drink: ['เครื่องดื่ม', 'cup', '--c-drink'], transport: ['เดินทาง', 'car', '--c-transport'], bills: ['บิล', 'bolt', '--c-bills'],
-    shopping: ['ช้อปปิ้ง', 'bag', '--c-shopping'], housing: ['ที่พัก', 'home', '--c-housing'], health: ['สุขภาพ', 'heart', '--c-health'],
-    fun: ['บันเทิง', 'film', '--c-fun'], other: ['อื่นๆ', 'dots', '--c-other'],
-    salary: ['เงินเดือน', 'brief', '--c-food'], freelance: ['ฟรีแลนซ์', 'laptop', '--c-shopping'], gift: ['ของขวัญ', 'gift', '--c-bills'], other_in: ['อื่นๆ', 'dots', '--c-other']
-  };
-  var EXPENSE_CATS = ['food', 'drink', 'transport', 'bills', 'shopping', 'housing', 'health', 'fun', 'other'];
-  var INCOME_CATS = ['salary', 'freelance', 'gift', 'other_in'];
-  function catName(k) { return (CATS[k] || CATS.other)[0]; }
-  function catIcon(k) {
-    var c = CATS[k] || CATS.other;
-    var s = el('span', { class: 'ic', style: 'background:var(' + c[2] + ')' }, [svgIcon(c[1])]);
-    return s;
-  }
-  var SOURCES = { LIFF: '', CHAT: 'แชต', SLIP: 'สลิป', SUB: 'ค่าสมาชิก', REC: 'ประจำ' };
-
-  // Accounts are cached for the pickers and the names shown on records; every screen that changes them reloads the accounts screen, which refreshes the cache.
-  var accounts = [], archivedAccounts = [];
-  function refreshAccounts() { return api('api/ledger/accounts').then(function (d) { accounts = d.accounts; archivedAccounts = d.archived || []; return d; }); }
-  function acctName(id) {
-    var all = accounts.concat(archivedAccounts), f = all.filter(function (a) { return a.id === id; })[0];
-    return f ? f.name : '';
-  }
-  function defaultAccountId() { var f = accounts.filter(function (a) { return a.isDefault; })[0]; return f ? f.id : null; }
-
-  // ───────── api ─────────
-  function api(path, opts) {
-    if (DEMO) return Demo.handle(path, opts);
-    opts = opts || {};
-    opts.headers = Object.assign({ Authorization: 'Bearer ' + idToken }, opts.headers || {});
-    var ctl = window.AbortController ? new AbortController() : null;
-    var timer = ctl ? setTimeout(function () { ctl.abort(); }, 30000) : null;
-    if (ctl) opts.signal = ctl.signal;
-    return fetch(API + path, opts).then(function (r) {
-      clearTimeout(timer);
-      return r.json().catch(function () { return {}; }).then(function (j) {
-        if (!r.ok) throw new Error(j.error || ('เกิดข้อผิดพลาด (' + r.status + ')'));
-        return j;
-      });
-    }, function (e) {
-      clearTimeout(timer);
-      if (e && e.name === 'AbortError') throw new Error('เซิร์ฟเวอร์ตอบช้าผิดปกติ ลองใหม่อีกครั้ง');
-      throw new Error('เชื่อมต่อไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่');
-    });
-  }
-  function post(path, body) {
-    return api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  }
-
-  // ───────── chrome: bar, tabs, fab, toast ─────────
-  var TABS = [['home', 'หน้าแรก', 'wallet'], ['history', 'ประวัติ', 'list'], ['report', 'รายงาน', 'pie'], ['accounts', 'บัญชี', 'bank'], ['subs', 'ประจำ', 'repeat']];
-  var current = 'home', month = monthKey(new Date());
-
-  function bar(title, onBack, action) {
-    document.getElementById('ttl').textContent = title;
-    document.getElementById('backSlot').replaceChildren(onBack ? ibtn('back', 'กลับ', onBack) : '');
-    document.getElementById('actSlot').replaceChildren(action || '');
-  }
-  // Every screen change bumps navSeq; a response that arrives after the user moved on is dropped instead of redrawing an old screen.
-  var navSeq = 0;
-  function load(path, render) {
-    var mine = navSeq;
-    return api(path).then(function (d) { if (mine === navSeq) render(d); }, function (e) { if (mine === navSeq) fail(e.message); });
-  }
-  function chrome(tab) {
-    navSeq++;
-    document.body.classList.toggle('no-tabs', !tab);
-    document.getElementById('fab').hidden = tab !== 'home' && tab !== 'history';
-    Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (b) {
-      if (b.dataset.tab === tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
-    });
-  }
-  function buildTabs() {
-    var nav = document.getElementById('tabs');
-    TABS.forEach(function (t) {
-      var b = el('button', { type: 'button', 'data-tab': t[0] }, [svgIcon(t[2]), el('span', { text: t[1] })]);
-      b.addEventListener('click', function () { open(t[0]); });
-      nav.appendChild(b);
-    });
-    var fab = document.getElementById('fab');
-    fab.appendChild(svgIcon('plus'));
-    fab.addEventListener('click', function () { openEntryForm(null); });
-  }
-  function open(tab) {
-    current = tab;
-    if (tab === 'history') return loadHistory();
-    if (tab === 'report') return loadReport();
-    if (tab === 'subs') return loadSubs();
-    if (tab === 'accounts') return loadAccounts();
-    return loadHome();
-  }
-  function backToCurrent() { open(current); }
-
-  var toastTimer;
-  function toast(text, actionLabel, onAction) {
-    var t = document.getElementById('toast'), a = document.getElementById('toastAct');
-    document.getElementById('toastMsg').textContent = text;
-    a.hidden = !actionLabel;
-    a.textContent = actionLabel || '';
-    a.onclick = function () { t.hidden = true; if (onAction) onAction(); };
-    t.hidden = false;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { t.hidden = true; }, actionLabel ? 8000 : 3000);
-  }
-
-  function monthSwitcher(onChange) {
-    var nextBtn = ibtn('next', 'เดือนถัดไป', function () { month = shiftMonth(month, 1); onChange(); });
-    if (month >= monthKey(new Date())) nextBtn.disabled = true;
-    return el('div', { class: 'months' }, [
-      ibtn('back', 'เดือนก่อน', function () { month = shiftMonth(month, -1); onChange(); }),
-      el('strong', { text: monthLabel(month) }),
-      nextBtn
-    ]);
-  }
-
-  function entryRow(e, showDate) {
-    var sign = e.kind === 'INCOME' ? '+' : '−';
-    var sub = [catName(e.category), e.accountId ? acctName(e.accountId) : '', SOURCES[e.source], showDate ? dayLabel(e.date) : ''].filter(Boolean).join(' · ');
-    var b = el('button', { class: 'tx', type: 'button' }, [
-      catIcon(e.category),
-      el('span', { class: 'grow' }, [el('span', { class: 'n', text: e.note || catName(e.category) }), el('span', { class: 's', text: sub, style: 'display:block' })]),
-      el('span', { class: 'v num' + (e.kind === 'INCOME' ? ' in' : ''), text: money(e.amountSatang, sign) })
-    ]);
-    b.addEventListener('click', function () { openEntryForm(e); });
-    return b;
-  }
-
-  // ───────── home ─────────
-  function loadHome() {
-    current = 'home'; chrome('home'); bar('จดจ่าย', null, ibtn('bell', 'ตั้งค่าแจ้งเตือน', openSettings));
-    return load('api/ledger/home?month=' + month, renderHome);
-  }
-  function renderHome(d) {
-    var nodes = [monthSwitcher(loadHome)];
-    var balance = d.incomeSatang - d.expenseSatang;
-    nodes.push(el('section', { class: 'sum', 'aria-label': 'ยอดเดือนนี้' }, [
-      el('div', {}, [el('div', { class: 'lbl', text: 'คงเหลือ' }), el('div', { class: 'big num', text: money(balance, balance < 0 ? '−' : '') })]),
-      el('div', { class: 'row' }, [
-        el('div', {}, [el('span', { class: 'lbl', text: 'รายรับ' }), el('b', { class: 'num', text: money(d.incomeSatang, '+') })]),
-        el('div', {}, [el('span', { class: 'lbl', text: 'รายจ่าย' }), el('b', { class: 'num', text: money(d.expenseSatang, '−') })])
-      ])
-    ]));
-
-    if (d.accounts && d.accounts.count) {
-      nodes.push(el('section', { class: 'card' }, [el('div', { class: 'card-h' }, [
-        el('h3', {}, ['บัญชี ', el('span', { class: 'muted num', style: 'font-weight:500', text: signedBaht(d.accounts.totalSatang) })]),
-        el('button', { class: 'link', type: 'button', text: 'ดูบัญชี', onclick: function () { open('accounts'); } })
-      ])]));
-    }
-
-    // budgets
-    var bud = el('section', { class: 'card' }, [el('div', { class: 'card-h' }, [el('h3', { text: 'งบประมาณ' }), el('button', { class: 'link', type: 'button', text: d.budgets.length ? 'แก้งบ' : 'ตั้งงบ', onclick: function () { openBudgets(d.budgets); } })])]);
-    if (!d.budgets.length) bud.appendChild(el('p', { class: 'muted small', style: 'margin:0', text: 'ตั้งงบต่อเดือนให้แต่ละหมวด แล้วจะเตือนเมื่อใช้เกิน 80%' }));
-    d.budgets.forEach(function (b) {
-      var pct = b.limitSatang ? b.spentSatang / b.limitSatang : 0;
-      var cls = pct > 1 ? 'over' : pct >= 0.8 ? 'warn' : '';
-      var label = el('span', {}, [catName(b.category) + ' ']);
-      if (cls === 'over') label.appendChild(el('span', { class: 'pill over', text: 'เกิน ' + money(b.spentSatang - b.limitSatang) }));
-      else if (cls === 'warn') label.appendChild(el('span', { class: 'pill warn', text: 'ใกล้เต็ม' }));
-      bud.appendChild(el('div', { class: 'bud' }, [
-        el('div', { class: 't' }, [label, el('span', { class: 'muted num', text: baht(b.spentSatang) + ' / ' + baht(b.limitSatang) })]),
-        el('div', { class: 'track', role: 'progressbar', 'aria-label': catName(b.category), 'aria-valuenow': String(Math.round(pct * 100)), 'aria-valuemin': '0', 'aria-valuemax': '100' },
-          [el('i', { class: cls, style: 'width:' + Math.min(100, Math.round(pct * 100)) + '%' })])
-      ]));
-    });
-    nodes.push(bud);
-
-    // subscriptions
-    var s = d.subscriptions;
-    var subCard = el('section', { class: 'card' }, [el('div', { class: 'card-h' }, [
-      el('h3', {}, ['ค่าสมาชิก ', el('span', { class: 'muted num', style: 'font-weight:500', text: s.count ? approx(s.monthlySatang) + '/เดือน' : '' })]),
-      el('button', { class: 'link', type: 'button', text: s.count ? 'จัดการ' : 'เพิ่ม', onclick: function () { open('subs'); } })
-    ])]);
-    if (s.next) subCard.appendChild(subRow(s.next, null));
-    else subCard.appendChild(el('p', { class: 'muted small', style: 'margin:0', text: 'เพิ่ม Netflix, Spotify, ฟิตเนส ฯลฯ แล้วระบบจะลงรายจ่ายให้เองทุกรอบ' }));
-    nodes.push(subCard);
-
-    // recent
-    var rec = el('section', { class: 'card' }, [el('div', { class: 'card-h' }, [el('h3', { text: 'ล่าสุด' }), el('button', { class: 'link', type: 'button', text: 'ประวัติ', onclick: function () { open('history'); } })])]);
-    if (!d.recent.length) rec.appendChild(el('div', { class: 'empty' }, [el('span', { text: 'ยังไม่มีรายการ แตะปุ่ม + เพื่อจดรายการแรก' })]));
-    var list = el('div', {});
-    d.recent.forEach(function (e) { list.appendChild(entryRow(e, true)); });
-    rec.appendChild(list);
-    nodes.push(rec);
-    show(nodes);
-  }
-
-  // ───────── add / edit entry ─────────
-  function openEntryForm(entry, kind) {
-    chrome(null);
-    var st = entry
-      ? { id: entry.id, kind: entry.kind, category: entry.category, amount: String(entry.amountSatang / 100), note: entry.note || '', date: entry.date, accountId: entry.accountId || null }
-      : { id: null, kind: kind === 'INCOME' ? 'INCOME' : 'EXPENSE', category: kind === 'INCOME' ? 'salary' : 'food', amount: '', note: '', date: todayIso(), accountId: defaultAccountId() };
-    bar(entry ? 'แก้ไขรายการ' : 'จดรายการ', backToCurrent);
-
-    var seg = el('div', { class: 'seg', role: 'group', 'aria-label': 'ประเภท' });
-    var out = el('output', { class: 'num', 'aria-live': 'polite' });
-    var cats = el('div', { class: 'cats' });
-    var err = el('div', { class: 'err', role: 'alert' });
-    var dateInp = el('input', { class: 'inp', type: 'date', id: 'f-date', value: st.date, max: todayIso() });
-    var noteInp = el('input', { class: 'inp', type: 'text', id: 'f-note', maxlength: '120', placeholder: 'เช่น ข้าวมันไก่', value: st.note, enterkeyhint: 'done' });
-    dateInp.addEventListener('change', function () { st.date = dateInp.value || todayIso(); });
-    noteInp.addEventListener('input', function () { st.note = noteInp.value; });
-
-    function draw() {
-      seg.replaceChildren();
-      [['EXPENSE', 'รายจ่าย'], ['INCOME', 'รายรับ']].forEach(function (k) {
-        seg.appendChild(el('button', { type: 'button', 'aria-pressed': String(st.kind === k[0]), text: k[1], onclick: function () {
-          if (st.kind === k[0]) return;
-          st.kind = k[0]; st.category = k[0] === 'INCOME' ? 'salary' : 'food'; draw();
-        } }));
-      });
-      var v = st.amount ? Number(st.amount) : 0;
-      out.textContent = (st.kind === 'INCOME' ? '+' : '−') + '฿' + (st.amount ? Number(st.amount.replace(/\.$/, '')).toLocaleString('th-TH', { maximumFractionDigits: 2 }) + (/\.$/.test(st.amount) ? '.' : '') : '0');
-      out.className = 'num' + (st.kind === 'INCOME' ? ' in' : '');
-      cats.replaceChildren();
-      (st.kind === 'INCOME' ? INCOME_CATS : EXPENSE_CATS).forEach(function (k) {
-        var b = el('button', { class: 'cat', type: 'button', 'aria-pressed': String(st.category === k) }, [catIcon(k), el('span', { text: catName(k) })]);
-        b.addEventListener('click', function () { st.category = k; draw(); });
-        cats.appendChild(b);
-      });
-      save.disabled = !(v > 0);
-    }
-
-    var keys = el('div', { class: 'keys' });
-    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del'].forEach(function (k) {
-      var b = el('button', { type: 'button', 'aria-label': k === 'del' ? 'ลบตัวเลข' : k === '.' ? 'จุดทศนิยม' : k }, [k === 'del' ? svgIcon('del') : k]);
-      b.addEventListener('click', function () {
-        var a = st.amount;
-        if (k === 'del') a = a.slice(0, -1);
-        else if (k === '.') { if (a.indexOf('.') < 0) a = (a || '0') + '.'; }
-        else if (/\.\d\d$/.test(a) || a.replace('.', '').length >= 9) return;   // 2 decimals, 9 digits max
-        else a = (a === '0' ? '' : a) + k;
-        st.amount = a; err.textContent = ''; draw();
-      });
-      keys.appendChild(b);
-    });
-
-    var save = el('button', { class: 'cta', type: 'button', text: 'บันทึก' });
-    save.addEventListener('click', function () {
-      save.disabled = true;
-      post('api/ledger/entries', { id: st.id, kind: st.kind, category: st.category, amount: Number(st.amount), note: st.note, date: st.date, accountId: st.accountId })
-        .then(function (saved) {
-          backToCurrent();
-          var label = catName(saved.category) + ' ' + money(saved.amountSatang, saved.kind === 'INCOME' ? '+' : '−');
-          if (st.id) toast('แก้ไขแล้ว · ' + label);
-          else toast('บันทึก ' + label, 'เลิกทำ', function () {
-            post('api/ledger/entries/delete', { id: saved.id }).then(function () { toast('ยกเลิกรายการแล้ว'); backToCurrent(); })
-              .catch(function (e) { toast(e.message); });
-          });
-        })
-        .catch(function (e) { err.textContent = e.message; save.disabled = false; });
-    });
-
-    var nodes = [seg,
-      el('div', { class: 'amount' }, [el('small', { text: 'จำนวนเงิน (บาท)' }), out]),
-      cats,
-      accountChips(st),
-      el('div', { class: 'fields' }, [
-        el('div', { class: 'field' }, [el('label', { for: 'f-date', text: 'วันที่' }), dateInp]),
-        el('div', { class: 'field' }, [el('label', { for: 'f-note', text: 'โน้ต' }), noteInp])
-      ]),
-      keys, err, save];
-
-    if (st.id) {
-      var delBtn = el('button', { class: 'ghost danger', type: 'button', text: 'ลบรายการนี้' });
-      var armed = false;
-      delBtn.addEventListener('click', function () {
-        if (!armed) { armed = true; delBtn.textContent = 'แตะอีกครั้งเพื่อยืนยันการลบ'; return; }
-        delBtn.disabled = true;
-        post('api/ledger/entries/delete', { id: st.id }).then(function () { backToCurrent(); toast('ลบรายการแล้ว'); })
-          .catch(function (e) { err.textContent = e.message; delBtn.disabled = false; });
-      });
-      nodes.push(delBtn);
-    }
-    draw();
-    show(nodes);
-  }
-
-  // ───────── history: the month list, or a search across all months ─────────
-  var hist = { kind: 'ALL', q: '', category: '', accountId: '' };
-  function searching() { return hist.q.trim() !== '' || hist.category !== '' || hist.accountId !== ''; }
-  function fullDay(s) { var d = parseIso(s); return d.getDate() + ' ' + TH_MONTHS[d.getMonth()] + ' ' + (d.getFullYear() + 543); }
-
-  function loadHistory() {
-    current = 'history'; chrome('history');
-    var seq = navSeq;
-    bar('ประวัติ', null, ibtn('download', 'ส่งออก CSV', openExport));
-
-    var switcher = monthSwitcher(loadHistory);
-    var search = el('input', { class: 'inp', id: 'h-q', type: 'search', maxlength: '60', enterkeyhint: 'search', value: hist.q,
-      placeholder: 'ค้นหา เช่น ค่าไฟ, อาหาร, 1250', 'aria-label': 'ค้นหารายการ' });
-    var cat = el('select', { class: 'inp', id: 'h-cat', 'aria-label': 'หมวด' }, [el('option', { value: '', text: 'ทุกหมวด' })]);
-    EXPENSE_CATS.forEach(function (k) { cat.appendChild(el('option', { value: k, text: catName(k) })); });
-    INCOME_CATS.forEach(function (k) { cat.appendChild(el('option', { value: k, text: k === 'other_in' ? 'อื่นๆ (รายรับ)' : catName(k) })); });
-    cat.value = hist.category;
-    var acct = null;
-    if (accounts.length) {
-      acct = el('select', { class: 'inp', id: 'h-acct', 'aria-label': 'บัญชี' }, [el('option', { value: '', text: 'ทุกบัญชี' })]);
-      accounts.forEach(function (a) { acct.appendChild(el('option', { value: String(a.id), text: a.name })); });
-      acct.value = hist.accountId;
-      acct.addEventListener('change', function () { hist.accountId = acct.value; refresh(); });
-    }
-    var seg = el('div', { class: 'seg', role: 'group', 'aria-label': 'ประเภท' });
-    var box = el('div', { class: 'results', 'aria-live': 'polite' });
-    var token = 0, timer;
-
-    function drawSeg() {
-      seg.replaceChildren();
-      [['ALL', 'ทั้งหมด'], ['EXPENSE', 'รายจ่าย'], ['INCOME', 'รายรับ']].forEach(function (f) {
-        seg.appendChild(el('button', { type: 'button', 'aria-pressed': String(hist.kind === f[0]), text: f[1], onclick: function () { hist.kind = f[0]; drawSeg(); refresh(); } }));
-      });
-    }
-    function refresh() {
-      switcher.hidden = searching();
-      var mine = ++token, path;
-      if (searching()) {
-        path = 'api/ledger/search?q=' + encodeURIComponent(hist.q.trim()) + '&category=' + encodeURIComponent(hist.category) + '&accountId=' + encodeURIComponent(hist.accountId) + (hist.kind === 'ALL' ? '' : '&kind=' + hist.kind);
-      } else path = 'api/ledger/entries?month=' + month;
-      api(path).then(function (d) {
-        if (mine !== token || seq !== navSeq) return;
-        draw(d);
-      }, function (e) {
-        if (mine !== token || seq !== navSeq) return;
-        box.replaceChildren(el('div', { class: 'card' }, [el('div', { class: 'err', text: e.message })]));
-      });
-    }
-    function draw(d) {
-      var nodes = [];
-      var rows = d.entries.filter(function (e) { return searching() || hist.kind === 'ALL' || e.kind === hist.kind; });
-      if (searching()) {
-        var sums = [];
-        if (d.expenseSatang) sums.push('รายจ่าย ' + money(d.expenseSatang, '−'));
-        if (d.incomeSatang) sums.push('รายรับ ' + money(d.incomeSatang, '+'));
-        nodes.push(el('div', { class: 'hint', text: rows.length ? 'พบ ' + (d.truncated ? '200+' : rows.length) + ' รายการ' + (sums.length ? ' · ' + sums.join(' · ') : '') + (d.truncated ? ' (แสดง 200 รายการล่าสุด)' : '') : '' }));
-      }
-      if (!rows.length) {
-        nodes.push(el('div', { class: 'card' }, [el('div', { class: 'empty', text: searching() ? 'ไม่พบรายการที่ตรงกัน ลองค้นด้วยชื่อหมวด หรือจำนวนเงิน' : 'ไม่มีรายการใน' + monthLabel(month) })]));
-      } else {
-        var card = el('section', { class: 'card', style: 'gap:4px' });
-        var day = null, list = null;
-        rows.forEach(function (e) {
-          if (e.date !== day) {
-            day = e.date;
-            var net = rows.filter(function (x) { return x.date === day; })
-              .reduce(function (t, x) { return t + (x.kind === 'INCOME' ? x.amountSatang : -x.amountSatang); }, 0);
-            card.appendChild(el('div', { class: 'daysep' }, [el('span', { text: searching() ? fullDay(day) : dayLabel(day) }), el('span', { class: 'num' + (net > 0 ? ' in' : ''), text: money(net, net > 0 ? '+' : net < 0 ? '−' : '') })]));
-            list = el('div', {});
-            card.appendChild(list);
-          }
-          list.appendChild(entryRow(e, false));
-        });
-        nodes.push(card);
-      }
-      box.replaceChildren.apply(box, nodes);
-    }
-
-    search.addEventListener('input', function () { hist.q = search.value; clearTimeout(timer); timer = setTimeout(refresh, 300); });
-    search.addEventListener('search', function () { hist.q = search.value; clearTimeout(timer); refresh(); });
-    cat.addEventListener('change', function () { hist.category = cat.value; refresh(); });
-    drawSeg();
-    show([switcher, el('div', { class: 'filters' }, [search, acct ? el('div', { class: 'two' }, [cat, acct]) : cat, seg]), box]);
-    refresh();
-  }
-
-  // ───────── export (CSV) ─────────
-  function openExport() {
-    chrome(null); bar('ส่งออก CSV', loadHistory);
-    var scope = 'month';
-    var seg = el('div', { class: 'seg', role: 'group', 'aria-label': 'ช่วงที่ส่งออก' });
-    var err = el('div', { class: 'err', role: 'alert' });
-    var result = el('div', { class: 'linkbox' });
-    var make = el('button', { class: 'cta', type: 'button', text: 'สร้างลิงก์ดาวน์โหลด' });
-
-    function drawSeg() {
-      seg.replaceChildren();
-      [['month', monthLabel(month)], ['year', 'ปีนี้'], ['all', 'ทั้งหมด']].forEach(function (o) {
-        seg.appendChild(el('button', { type: 'button', 'aria-pressed': String(scope === o[0]), text: o[1], onclick: function () { scope = o[0]; result.replaceChildren(); err.textContent = ''; drawSeg(); } }));
-      });
-    }
-    make.addEventListener('click', function () {
-      make.disabled = true; err.textContent = ''; result.replaceChildren();
-      post('api/ledger/export-link', { scope: scope, month: month }).then(function (r) {
-        make.disabled = false;
-        var go = el('button', { class: 'cta', type: 'button', text: 'ดาวน์โหลด CSV' });
-        go.addEventListener('click', function () {
-          if (DEMO) { toast('โหมดตัวอย่าง: ไม่สร้างไฟล์จริง'); return; }
-          // the file opens in the phone's own browser: LINE's in-app browser does not handle downloads well
-          if (window.liff && liff.openWindow) liff.openWindow({ url: r.url, external: true }); else window.open(r.url, '_blank');
-        });
-        result.replaceChildren(el('div', { text: r.label + ' · ' + r.count.toLocaleString('th-TH') + ' รายการ', style: 'font-weight:600' }), go,
-          el('div', { class: 'hint', text: 'ลิงก์ใช้ได้ ' + r.minutes + ' นาที ขอลิงก์ใหม่ได้เสมอ' }));
-      }).catch(function (e) { err.textContent = e.message; make.disabled = false; });
-    });
-    drawSeg();
-    show([el('section', { class: 'card' }, [
-      el('span', { class: 'lbl2', text: 'เลือกช่วงที่ต้องการ' }), seg,
-      el('p', { class: 'hint', style: 'margin:0', text: 'ได้ไฟล์ .csv มีวันที่ ประเภท หมวด จำนวนเงิน โน้ต และที่มา เปิดใน Excel หรือ Google Sheets ได้' })
-    ]), err, make, result]);
-  }
-
-  // ───────── report ─────────
-  function loadReport() {
-    current = 'report'; chrome('report'); bar('รายงาน');
-    return load('api/ledger/report?month=' + month, renderReport);
-  }
-  function renderReport(d) {
-    var nodes = [monthSwitcher(loadReport)];
-    var balance = d.incomeSatang - d.expenseSatang;
-    nodes.push(el('section', { class: 'sum' }, [el('div', { class: 'row' }, [
-      el('div', {}, [el('span', { class: 'lbl', text: 'รายรับ' }), el('b', { class: 'num', text: money(d.incomeSatang, '+') })]),
-      el('div', {}, [el('span', { class: 'lbl', text: 'รายจ่าย' }), el('b', { class: 'num', text: money(d.expenseSatang, '−') })])
-    ]), el('div', { class: 'lbl num', text: 'คงเหลือ ' + money(balance, balance < 0 ? '−' : '') })]));
-
-    var catCard = el('section', { class: 'card' }, [el('h3', { text: 'รายจ่ายตามหมวด' })]);
-    if (!d.expenseSatang) catCard.appendChild(el('div', { class: 'empty', text: 'ยังไม่มีรายจ่ายในเดือนนี้' }));
-    else {
-      var NS = 'http://www.w3.org/2000/svg';
-      var svg = document.createElementNS(NS, 'svg');
-      svg.setAttribute('viewBox', '0 0 42 42'); svg.setAttribute('role', 'img');
-      var legend = el('div', { class: 'legend num' });
-      var offset = 0, desc = [];
-      d.byCategory.forEach(function (c) {
-        var pct = c.satang / d.expenseSatang * 100;
-        var col = 'var(' + (CATS[c.category] || CATS.other)[2] + ')';
-        var circle = document.createElementNS(NS, 'circle');
-        circle.setAttribute('cx', '21'); circle.setAttribute('cy', '21'); circle.setAttribute('r', '15.915');
-        circle.setAttribute('stroke', col);
-        circle.setAttribute('stroke-dasharray', pct.toFixed(3) + ' ' + (100 - pct).toFixed(3));
-        circle.setAttribute('stroke-dashoffset', String(-offset));
-        svg.appendChild(circle);
-        offset += pct;
-        desc.push(catName(c.category) + ' ' + Math.round(pct) + '%');
-        legend.appendChild(el('div', {}, [el('i', { style: 'background:' + col }), el('span', { text: catName(c.category) + ' ' + Math.round(pct) + '%' }), el('b', { text: baht(c.satang) })]));
-      });
-      svg.setAttribute('aria-label', 'สัดส่วนรายจ่าย: ' + desc.join(', '));
-      catCard.appendChild(el('div', { class: 'donut' }, [svg, legend]));
-    }
-    nodes.push(catCard);
-
-    var max = Math.max.apply(null, d.byDay.map(function (x) { return x.satang; }).concat([1]));
-    var isThisMonth = month === monthKey(new Date()), today = new Date().getDate();
-    var bars = el('div', { class: 'bars', style: 'grid-template-columns:repeat(' + d.byDay.length + ',1fr)', role: 'img', 'aria-label': 'รายจ่ายรายวันของ' + monthLabel(month) });
-    d.byDay.forEach(function (x) {
-      bars.appendChild(el('i', { class: isThisMonth && x.day === today ? 'today' : '', style: 'height:' + Math.round(x.satang / max * 100) + '%', title: x.day + ': ฿' + baht(x.satang) }));
-    });
-    nodes.push(el('section', { class: 'card' }, [
-      el('div', { class: 'card-h' }, [el('h3', { text: 'รายจ่ายรายวัน' }), el('span', { class: 'muted small num', text: 'เฉลี่ย ' + approx(d.avgPerDaySatang) + '/วัน' })]),
-      el('div', {}, [bars, el('div', { class: 'axis num' }, [el('span', { text: '1' }), el('span', { text: String(Math.ceil(d.byDay.length / 2)) }), el('span', { text: String(d.byDay.length) })])])
-    ]));
-    show(nodes);
-  }
-
-  // ───────── budgets ─────────
-  function openBudgets(budgets) {
-    chrome(null); bar('งบประมาณต่อเดือน', backToCurrent);
-    var inputs = {};
-    var card = el('section', { class: 'card' }, [el('p', { class: 'muted small', style: 'margin:0', text: 'เว้นว่างหรือใส่ 0 = ไม่ตั้งงบหมวดนั้น' })]);
-    EXPENSE_CATS.forEach(function (k) {
-      var cur = budgets.filter(function (b) { return b.category === k; })[0];
-      var inp = el('input', { class: 'inp num', id: 'b-' + k, type: 'number', inputmode: 'decimal', min: '0', step: '1', placeholder: '0', value: cur ? String(cur.limitSatang / 100) : '' });
-      inputs[k] = inp;
-      card.appendChild(el('div', { class: 'tx', style: 'grid-template-columns:40px 1fr 130px' }, [catIcon(k), el('label', { for: 'b-' + k, class: 'n', text: catName(k) }), inp]));
-    });
-    var err = el('div', { class: 'err', role: 'alert' });
-    var save = el('button', { class: 'cta', type: 'button', text: 'บันทึกงบ' });
-    save.addEventListener('click', function () {
-      save.disabled = true;
-      var items = EXPENSE_CATS.map(function (k) { return { category: k, limit: Number(inputs[k].value || 0) }; });
-      post('api/ledger/budgets', { items: items }).then(function () { backToCurrent(); toast('บันทึกงบแล้ว'); })
-        .catch(function (e) { err.textContent = e.message; save.disabled = false; });
-    });
-    show([card, err, save]);
-  }
-
-  // ───────── subscriptions ─────────
-  function initialOf(name) { return (Array.from((name || '?').trim())[0] || '?').toUpperCase(); }
-  function subPill(s, chargedOn) {
-    if (s.inTrial) return el('span', { class: 'pill over', text: 'ทดลองฟรีถึง ' + dayLabel(s.trialEndsOn) });
-    if (chargedOn) return el('span', { class: 'pill ok', text: 'ตัดแล้ว' });
-    if (s.daysLeft <= 0) return el('span', { class: 'pill warn', text: 'วันนี้' });
-    if (s.daysLeft <= 3) return el('span', { class: 'pill warn', text: 'อีก ' + s.daysLeft + ' วัน' });
-    if (s.daysLeft <= 31) return el('span', { class: 'pill', text: 'อีก ' + s.daysLeft + ' วัน' });
-    return el('span', { class: 'pill', text: dayLabel(s.nextChargeOn) });
-  }
-  function subRow(s, chargedOn, onClick) {
-    var when = s.cycle === 'YEARLY'
-      ? 'รายปี · ' + s.day + ' ' + TH_MONTHS[(s.month || 1) - 1] + ' · ≈ ' + approx(s.monthlySatang) + '/เดือน'
-      : 'ทุกวันที่ ' + s.day + ' · ' + catName(s.category);
-    var b = el(onClick ? 'button' : 'div', onClick ? { class: 'tx', type: 'button' } : { class: 'tx' }, [
-      el('span', { class: 'av', 'aria-hidden': 'true', text: initialOf(s.name) }),
-      el('span', { class: 'grow' }, [el('span', { class: 'n', text: s.name }), el('span', { class: 's num', style: 'display:block', text: when })]),
-      el('span', { class: 'v num' }, [el('span', { text: baht(s.amountSatang) + (s.cycle === 'YEARLY' ? '/ปี' : '') }), subPill(s, chargedOn)])
-    ]);
-    if (onClick) b.addEventListener('click', onClick);
-    return b;
-  }
-  var subsView = 'subs';   // 'subs' = subscriptions, 'rec' = recurring entries
-  function subsSeg() {
-    var seg = el('div', { class: 'seg', role: 'group', 'aria-label': 'ประเภทรายการประจำ' });
-    [['subs', 'ค่าสมาชิก'], ['rec', 'รายการประจำ']].forEach(function (v) {
-      seg.appendChild(el('button', { type: 'button', 'aria-pressed': String(subsView === v[0]), text: v[1], onclick: function () { subsView = v[0]; loadSubs(); } }));
-    });
-    return seg;
-  }
-  function loadSubs() {
-    current = 'subs'; chrome('subs');
-    if (subsView === 'rec') {
-      bar('ประจำ', null, ibtn('plus', 'เพิ่มรายการประจำ', function () { openRecurringForm(null); }));
-      return load('api/ledger/recurring', renderRecurring);
-    }
-    bar('ประจำ', null, ibtn('plus', 'เพิ่มค่าสมาชิก', function () { openSubForm(null); }));
-    return load('api/ledger/subscriptions', renderSubs);
-  }
-  function renderSubs(d) {
-    var nodes = [subsSeg(), el('section', { class: 'sum' }, [
-      el('div', {}, [el('div', { class: 'lbl', text: 'ค่าสมาชิกต่อเดือน (เฉลี่ย)' }), el('div', { class: 'big num', text: approx(d.monthlySatang) })]),
-      el('div', { class: 'row' }, [
-        el('div', {}, [el('span', { class: 'lbl', text: 'ต่อปี' }), el('b', { class: 'num', text: money(d.yearlySatang) })]),
-        el('div', {}, [el('span', { class: 'lbl', text: 'เหลือตัดเดือนนี้' }), el('b', { class: 'num', text: money(d.leftThisMonthSatang) })])
-      ])
-    ])];
-
-    d.items.filter(function (x) { return x.sub.inTrial; }).forEach(function (x) {
-      var s = x.sub;
-      nodes.push(el('div', { class: 'alert' }, [svgIcon('bell'), el('div', {}, [
-        el('b', { text: s.name + ' ทดลองฟรีจบ ' + dayLabel(s.trialEndsOn) }),
-        el('span', { text: 'หลังจากนั้นตัด ' + money(s.amountSatang) + (s.cycle === 'YEARLY' ? '/ปี' : '/เดือน') })
-      ])]));
-    });
-
-    if (!d.items.length) {
-      nodes.push(el('div', { class: 'card' }, [el('div', { class: 'empty' }, [
-        el('span', { text: 'ยังไม่มีค่าสมาชิก เพิ่มแล้วระบบจะลงรายจ่ายให้อัตโนมัติทุกวันตัดเงิน' }),
-        el('button', { class: 'cta', type: 'button', text: 'เพิ่มค่าสมาชิก', onclick: function () { openSubForm(null); } })
-      ])]));
-      return show(nodes);
-    }
-    var groups = [
-      ['ตัดถัดไป', d.items.filter(function (x) { return !x.sub.inTrial && !x.chargedThisMonthOn && x.sub.cycle === 'MONTHLY'; })],
-      ['ทดลองฟรี', d.items.filter(function (x) { return x.sub.inTrial; })],
-      ['ตัดแล้วเดือนนี้', d.items.filter(function (x) { return !x.sub.inTrial && x.chargedThisMonthOn; })],
-      ['รายปี', d.items.filter(function (x) { return !x.sub.inTrial && !x.chargedThisMonthOn && x.sub.cycle === 'YEARLY'; })]
-    ];
-    var card = el('section', { class: 'card', style: 'gap:4px' });
-    groups.forEach(function (g) {
-      if (!g[1].length) return;
-      card.appendChild(el('div', { class: 'daysep', text: g[0] }));
-      var list = el('div', {});
-      g[1].forEach(function (x) { list.appendChild(subRow(x.sub, x.chargedThisMonthOn, function () { openSubForm(x.sub); })); });
-      card.appendChild(list);
-    });
-    nodes.push(card);
-    show(nodes);
-  }
-
-  function openSubForm(s) {
-    chrome(null); bar(s ? 'แก้ไขค่าสมาชิก' : 'เพิ่มค่าสมาชิก', function () { subsView = 'subs'; loadSubs(); });
-    var st = s
-      ? { id: s.id, name: s.name, amount: String(s.amountSatang / 100), cycle: s.cycle, day: s.day, month: s.month || new Date().getMonth() + 1, category: s.category, trial: !!s.inTrial, trialEndsOn: s.trialEndsOn || '' }
-      : { id: null, name: '', amount: '', cycle: 'MONTHLY', day: new Date().getDate(), month: new Date().getMonth() + 1, category: 'fun', trial: false, trialEndsOn: '' };
-
-    var name = el('input', { class: 'inp', id: 's-name', maxlength: '60', placeholder: 'เช่น Netflix', value: st.name });
-    var amount = el('input', { class: 'inp num', id: 's-amount', type: 'number', inputmode: 'decimal', min: '0', step: '0.01', placeholder: '0', value: st.amount });
-    var seg = el('div', { class: 'seg', role: 'group', 'aria-label': 'รอบการตัดเงิน' });
-    var day = el('select', { class: 'inp', id: 's-day' });
-    for (var i = 1; i <= 31; i++) day.appendChild(el('option', { value: String(i), text: 'วันที่ ' + i }));
-    day.value = String(st.day);
-    var mon = el('select', { class: 'inp', id: 's-month' });
-    TH_MONTHS_FULL.forEach(function (m, idx) { mon.appendChild(el('option', { value: String(idx + 1), text: m })); });
-    mon.value = String(st.month);
-    var monField = el('div', { class: 'field' }, [el('label', { for: 's-month', text: 'เดือน' }), mon]);
-    var cats = el('div', { class: 'cats' });
-    var trial = el('input', { type: 'checkbox', id: 's-trial' });
-    trial.checked = st.trial;
-    var trialDate = el('input', { class: 'inp', type: 'date', id: 's-trial-date', min: todayIso(), value: st.trialEndsOn });
-    var trialField = el('div', { class: 'field' }, [el('label', { for: 's-trial-date', text: 'ทดลองฟรีถึงวันที่' }), trialDate]);
-    var err = el('div', { class: 'err', role: 'alert' });
-
-    function draw() {
-      seg.replaceChildren();
-      [['MONTHLY', 'รายเดือน'], ['YEARLY', 'รายปี']].forEach(function (c) {
-        seg.appendChild(el('button', { type: 'button', 'aria-pressed': String(st.cycle === c[0]), text: c[1], onclick: function () { st.cycle = c[0]; draw(); } }));
-      });
-      monField.hidden = st.cycle !== 'YEARLY';
-      trialField.hidden = !trial.checked;
-      cats.replaceChildren();
-      EXPENSE_CATS.forEach(function (k) {
-        var b = el('button', { class: 'cat', type: 'button', 'aria-pressed': String(st.category === k) }, [catIcon(k), el('span', { text: catName(k) })]);
-        b.addEventListener('click', function () { st.category = k; draw(); });
-        cats.appendChild(b);
-      });
-    }
-    trial.addEventListener('change', draw);
-
-    var save = el('button', { class: 'cta', type: 'button', text: 'บันทึก' });
-    save.addEventListener('click', function () {
-      if (!name.value.trim()) { err.textContent = 'ใส่ชื่อบริการ'; name.focus(); return; }
-      if (!(Number(amount.value) > 0)) { err.textContent = 'ใส่ราคาให้ถูกต้อง'; amount.focus(); return; }
-      if (trial.checked && !trialDate.value) { err.textContent = 'เลือกวันที่ทดลองฟรีหมด'; trialDate.focus(); return; }
-      save.disabled = true;
-      post('api/ledger/subscriptions', {
-        id: st.id, name: name.value, amount: Number(amount.value), cycle: st.cycle, day: Number(day.value),
-        month: st.cycle === 'YEARLY' ? Number(mon.value) : null, category: st.category, trialEndsOn: trial.checked ? trialDate.value : null
-      }).then(function (r) { loadSubs(); toast((st.id ? 'แก้ไข ' : 'เพิ่ม ') + r.name + ' แล้ว · ตัดครั้งถัดไป ' + dayLabel(r.nextChargeOn)); })
-        .catch(function (e) { err.textContent = e.message; save.disabled = false; });
-    });
-
-    var nodes = [el('section', { class: 'card' }, [
-      el('div', { class: 'field' }, [el('label', { for: 's-name', text: 'ชื่อบริการ' }), name]),
-      el('div', { class: 'field' }, [el('label', { for: 's-amount', text: 'ราคา (บาท)' }), amount]),
-      el('div', { class: 'field' }, [el('span', { class: 'lbl2', text: 'รอบการตัดเงิน' }), seg]),
-      el('div', { class: 'fields', style: 'grid-template-columns:1fr 1fr' }, [el('div', { class: 'field' }, [el('label', { for: 's-day', text: 'วันที่ตัด' }), day]), monField]),
-      el('label', { class: 'check', for: 's-trial' }, [trial, el('span', { text: 'อยู่ในช่วงทดลองฟรี' })]),
-      trialField
-    ]), el('section', { class: 'card' }, [el('span', { class: 'lbl2', text: 'หมวดรายจ่าย' }), cats]), err, save];
-
-    if (st.id) {
-      var stop = el('button', { class: 'ghost danger', type: 'button', text: 'เลิกใช้บริการนี้' });
-      var armed = false;
-      stop.addEventListener('click', function () {
-        if (!armed) { armed = true; stop.textContent = 'แตะอีกครั้งเพื่อยืนยัน (ประวัติเดิมยังอยู่)'; return; }
-        stop.disabled = true;
-        post('api/ledger/subscriptions/stop', { id: st.id }).then(function () { loadSubs(); toast('หยุด ' + st.name + ' แล้ว'); })
-          .catch(function (e) { err.textContent = e.message; stop.disabled = false; });
-      });
-      nodes.push(stop);
-    }
-    draw();
-    show(nodes);
-  }
-
-  // ───────── accounts & transfers ─────────
-  var ACCT_TYPES = [['CASH', 'เงินสด'], ['BANK', 'ธนาคาร'], ['CARD', 'บัตรเครดิต'], ['EWALLET', 'e-wallet'], ['OTHER', 'อื่นๆ']];
-  function acctTypeName(t) { var f = ACCT_TYPES.filter(function (x) { return x[0] === t; })[0]; return f ? f[1] : 'อื่นๆ'; }
-  function acctIcon(t) { return { CASH: 'wallet', BANK: 'bank', CARD: 'card', EWALLET: 'phone' }[t] || 'dots'; }
-  function signedBaht(satang) { return (satang < 0 ? '−' : '') + '฿' + baht(Math.abs(satang)); }
-
-  // A text button that needs a second tap within 3 seconds, so a destructive action is never one accidental tap away.
-  function confirmButton(label, confirmLabel, cls, action) {
-    var b = el('button', { class: cls, type: 'button', text: label }), armed = false, timer;
-    b.addEventListener('click', function () {
-      if (!armed) {
-        armed = true; b.textContent = confirmLabel;
-        timer = setTimeout(function () { armed = false; b.textContent = label; }, 3000);
-        return;
-      }
-      clearTimeout(timer); b.disabled = true; action(b);
-    });
-    return b;
-  }
-
-  // Chip row to pick the account of a record; hidden while the user has no accounts. st.accountId is read and written.
-  function accountChips(st) {
-    var wrap = el('div', { class: 'field' }, [el('span', { class: 'lbl2', text: 'บัญชี' })]);
-    var row = el('div', { class: 'acctrow', role: 'group', 'aria-label': 'บัญชี' });
-    wrap.appendChild(row);
-    function draw() {
-      row.replaceChildren();
-      var opts = [[null, 'ไม่ระบุ']].concat(accounts.map(function (a) { return [a.id, a.name]; }));
-      // an account the record already has but that was archived since stays selectable
-      if (st.accountId && !accounts.some(function (a) { return a.id === st.accountId; })) opts.push([st.accountId, acctName(st.accountId) || 'บัญชีเดิม']);
-      opts.forEach(function (o) {
-        row.appendChild(el('button', { class: 'chipbtn', type: 'button', text: o[1], 'aria-pressed': String((st.accountId || null) === o[0]),
-          onclick: function () { st.accountId = o[0]; draw(); } }));
-      });
-    }
-    draw();
-    wrap.hidden = !accounts.length && !st.accountId;
-    return wrap;
-  }
-
-  function loadAccounts() {
-    current = 'accounts'; chrome('accounts');
-    bar('บัญชี', null, ibtn('plus', 'เพิ่มบัญชี', function () { openAccountForm(null); }));
-    return load('api/ledger/accounts', renderAccounts);
-  }
-  function renderAccounts(d) {
-    accounts = d.accounts; archivedAccounts = d.archived || [];
-    var nodes = [el('section', { class: 'sum' }, [
-      el('div', {}, [el('div', { class: 'lbl', text: 'ยอดรวมทุกบัญชี' }), el('div', { class: 'big num', text: signedBaht(d.totalSatang) })]),
-      el('div', { class: 'lbl', text: accounts.length ? accounts.length + ' บัญชี · รายการที่ไม่ได้ระบุบัญชีไม่ถูกนับ' : 'ยังไม่มีบัญชี' })
-    ])];
-
-    if (!accounts.length) {
-      nodes.push(el('div', { class: 'card' }, [el('div', { class: 'empty' }, [
-        el('span', { text: 'เพิ่มบัญชี เช่น เงินสด, ธนาคาร, บัตรเครดิต แล้วเลือกบัญชีตอนจดรายการ จะเห็นยอดคงเหลือของแต่ละบัญชี' }),
-        el('button', { class: 'cta', type: 'button', text: 'เพิ่มบัญชีแรก', onclick: function () { openAccountForm(null); } })
-      ])]));
-      return show(nodes);
-    }
-
-    var card = el('section', { class: 'card', style: 'gap:4px' });
-    accounts.forEach(function (a) {
-      var b = el('button', { class: 'tx', type: 'button' }, [
-        el('span', { class: 'av', 'aria-hidden': 'true' }, [svgIcon(acctIcon(a.type))]),
-        el('span', { class: 'grow' }, [el('span', { class: 'n', text: a.name }), el('span', { class: 's', style: 'display:block', text: acctTypeName(a.type) + (a.isDefault ? ' · บัญชีหลัก' : '') })]),
-        el('span', { class: 'v num' + (a.balanceSatang < 0 ? ' neg' : ''), text: signedBaht(a.balanceSatang) })
-      ]);
-      b.addEventListener('click', function () { openAccountForm(a); });
-      card.appendChild(b);
-    });
-    nodes.push(card);
-    if (accounts.length >= 2) nodes.push(el('button', { class: 'ghost', type: 'button', text: 'โอนระหว่างบัญชี', onclick: openTransferForm }));
-
-    if (d.transfers.length) {
-      var tcard = el('section', { class: 'card', style: 'gap:4px' }, [el('h3', { text: 'การโอนล่าสุด' })]);
-      d.transfers.forEach(function (t) {
-        var del = confirmButton('ลบ', 'ยืนยันลบ', 'link', function () {
-          post('api/ledger/transfers/delete', { id: t.id }).then(function () { loadAccounts(); toast('ลบการโอนแล้ว'); }).catch(function (e) { toast(e.message); });
-        });
-        tcard.appendChild(el('div', { class: 'tx', style: 'grid-template-columns:1fr auto auto' }, [
-          el('span', { class: 'grow' }, [el('span', { class: 'n', text: acctName(t.fromId) + ' → ' + acctName(t.toId) }), el('span', { class: 's', style: 'display:block', text: fullDay(t.date) + (t.note ? ' · ' + t.note : '') })]),
-          el('span', { class: 'v num', text: money(t.amountSatang) }), del
-        ]));
-      });
-      nodes.push(tcard);
-    }
-    show(nodes);
-  }
-
-  function openAccountForm(a) {
-    chrome(null); bar(a ? 'แก้ไขบัญชี' : 'เพิ่มบัญชี', loadAccounts);
-    var name = el('input', { class: 'inp', id: 'a-name', maxlength: '40', placeholder: 'เช่น เงินสด, KBank, บัตร KTC', value: a ? a.name : '' });
-    var type = el('select', { class: 'inp', id: 'a-type' });
-    ACCT_TYPES.forEach(function (t) { type.appendChild(el('option', { value: t[0], text: t[1] })); });
-    type.value = a ? a.type : 'CASH';
-    var opening = el('input', { class: 'inp num', id: 'a-open', type: 'number', inputmode: 'decimal', step: '0.01', placeholder: '0', value: a ? String(a.openingSatang / 100) : '' });
-    var def = el('input', { type: 'checkbox', id: 'a-def' });
-    def.checked = a ? a.isDefault : accounts.length === 0;
-    var err = el('div', { class: 'err', role: 'alert' });
-    var save = el('button', { class: 'cta', type: 'button', text: 'บันทึก' });
-    save.addEventListener('click', function () {
-      if (!name.value.trim()) { err.textContent = 'ใส่ชื่อบัญชี'; name.focus(); return; }
-      save.disabled = true; err.textContent = '';
-      post('api/ledger/accounts', { id: a ? a.id : null, name: name.value, type: type.value, opening: Number(opening.value || 0), isDefault: def.checked })
-        .then(function (r) { loadAccounts(); toast((a ? 'แก้ไข ' : 'เพิ่มบัญชี ') + r.name + ' แล้ว'); })
-        .catch(function (e) { err.textContent = e.message; save.disabled = false; });
-    });
-    var nodes = [el('section', { class: 'card' }, [
-      el('div', { class: 'field' }, [el('label', { for: 'a-name', text: 'ชื่อบัญชี' }), name]),
-      el('div', { class: 'field' }, [el('label', { for: 'a-type', text: 'ประเภท' }), type]),
-      el('div', { class: 'field' }, [el('label', { for: 'a-open', text: 'ยอดตั้งต้น (บาท)' }), opening,
-        el('span', { class: 'hint', text: 'เงินในบัญชีตอนนี้ ใส่ติดลบได้ถ้าเป็นบัตรที่มีหนี้ เช่น -3500' })]),
-      el('label', { class: 'check', for: 'a-def' }, [def, el('span', { text: 'ใช้เป็นบัญชีหลัก (เมื่อจดโดยไม่ระบุบัญชี)' })])
-    ]), err, save];
-    if (a) {
-      nodes.push(confirmButton('เลิกใช้บัญชีนี้', 'แตะอีกครั้งเพื่อยืนยัน (รายการเดิมยังอยู่)', 'ghost danger', function (b) {
-        post('api/ledger/accounts/archive', { id: a.id }).then(function () { loadAccounts(); toast('เลิกใช้ ' + a.name + ' แล้ว'); })
-          .catch(function (e) { err.textContent = e.message; b.disabled = false; });
-      }));
-    }
-    show(nodes);
-  }
-
-  function openTransferForm() {
-    chrome(null); bar('โอนระหว่างบัญชี', loadAccounts);
-    function picker(id) {
-      var sel = el('select', { class: 'inp', id: id });
-      accounts.forEach(function (a) { sel.appendChild(el('option', { value: String(a.id), text: a.name })); });
-      return sel;
-    }
-    var from = picker('t-from'), to = picker('t-to');
-    from.value = String(accounts[0].id); to.value = String(accounts[1].id);
-    var amount = el('input', { class: 'inp num', id: 't-amount', type: 'number', inputmode: 'decimal', min: '0', step: '0.01', placeholder: '0' });
-    var date = el('input', { class: 'inp', id: 't-date', type: 'date', value: todayIso(), max: todayIso() });
-    var note = el('input', { class: 'inp', id: 't-note', maxlength: '120', placeholder: 'เช่น ถอนเงินสด, จ่ายบัตร' });
-    var err = el('div', { class: 'err', role: 'alert' });
-    var save = el('button', { class: 'cta', type: 'button', text: 'โอน' });
-    save.addEventListener('click', function () {
-      if (from.value === to.value) { err.textContent = 'เลือกบัญชีต้นทางและปลายทางคนละบัญชี'; return; }
-      if (!(Number(amount.value) > 0)) { err.textContent = 'ใส่จำนวนเงิน'; amount.focus(); return; }
-      save.disabled = true; err.textContent = '';
-      post('api/ledger/transfers', { fromId: Number(from.value), toId: Number(to.value), amount: Number(amount.value), date: date.value || todayIso(), note: note.value })
-        .then(function () { loadAccounts(); toast('โอน ฿' + baht(Math.round(Number(amount.value) * 100)) + ' แล้ว'); })
-        .catch(function (e) { err.textContent = e.message; save.disabled = false; });
-    });
-    show([el('section', { class: 'card' }, [
-      el('div', { class: 'field' }, [el('label', { for: 't-from', text: 'จากบัญชี' }), from]),
-      el('div', { class: 'field' }, [el('label', { for: 't-to', text: 'ไปบัญชี' }), to]),
-      el('div', { class: 'field' }, [el('label', { for: 't-amount', text: 'จำนวนเงิน (บาท)' }), amount]),
-      el('div', { class: 'field' }, [el('label', { for: 't-date', text: 'วันที่' }), date]),
-      el('div', { class: 'field' }, [el('label', { for: 't-note', text: 'โน้ต' }), note]),
-      el('span', { class: 'hint', text: 'การโอนไม่นับเป็นรายรับหรือรายจ่าย แค่ย้ายเงินระหว่างบัญชี' })
-    ]), err, save]);
-  }
-
-  // ───────── recurring entries ─────────
-  var WEEKDAYS = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์'];
-  function isoWeekday(d) { return d.getDay() === 0 ? 7 : d.getDay(); }
-  function freqLabel(r) {
-    if (r.frequency === 'WEEKLY') return 'ทุกวัน' + WEEKDAYS[r.day - 1];
-    if (r.frequency === 'YEARLY') return 'ทุกปี ' + r.day + ' ' + TH_MONTHS[(r.month || 1) - 1];
-    return 'ทุกวันที่ ' + r.day;
-  }
-
-  function renderRecurring(d) {
-    var nodes = [subsSeg(), el('section', { class: 'sum' }, [
-      el('div', { class: 'lbl', text: 'เฉลี่ยต่อเดือน' }),
-      el('div', { class: 'row' }, [
-        el('div', {}, [el('span', { class: 'lbl', text: 'รายรับประจำ' }), el('b', { class: 'num', text: money(d.monthlyIncomeSatang, '+') })]),
-        el('div', {}, [el('span', { class: 'lbl', text: 'รายจ่ายประจำ' }), el('b', { class: 'num', text: money(d.monthlyExpenseSatang, '−') })])
-      ])
-    ])];
-    if (!d.items.length) {
-      nodes.push(el('div', { class: 'card' }, [el('div', { class: 'empty' }, [
-        el('span', { text: 'ยังไม่มีรายการประจำ เช่น ค่าเช่าห้อง เงินเดือน ค่างวด เพิ่มแล้วระบบจะลงรายการให้เองทุกรอบ' }),
-        el('button', { class: 'cta', type: 'button', text: 'เพิ่มรายการประจำ', onclick: function () { openRecurringForm(null); } })
-      ])]));
-      return show(nodes);
-    }
-    var card = el('section', { class: 'card', style: 'gap:4px' });
-    d.items.forEach(function (r) {
-      var sub = [freqLabel(r), 'ถัดไป ' + dayLabel(r.nextOn), r.accountId ? acctName(r.accountId) : '', r.endOn ? 'ถึง ' + dayLabel(r.endOn) : ''].filter(Boolean).join(' · ');
-      var b = el('button', { class: 'tx', type: 'button' }, [
-        catIcon(r.category),
-        el('span', { class: 'grow' }, [el('span', { class: 'n', text: r.note || catName(r.category) }), el('span', { class: 's', style: 'display:block', text: sub })]),
-        el('span', { class: 'v num' + (r.kind === 'INCOME' ? ' in' : ''), text: money(r.amountSatang, r.kind === 'INCOME' ? '+' : '−') })
-      ]);
-      b.addEventListener('click', function () { openRecurringForm(r); });
-      card.appendChild(b);
-    });
-    nodes.push(card);
-    show(nodes);
-  }
-
-  function openRecurringForm(r) {
-    subsView = 'rec';
-    chrome(null); bar(r ? 'แก้ไขรายการประจำ' : 'เพิ่มรายการประจำ', loadSubs);
-    var now = new Date();
-    var st = r
-      ? { id: r.id, kind: r.kind, category: r.category, accountId: r.accountId || null, freq: r.frequency, day: r.day, month: r.month || now.getMonth() + 1, hasEnd: !!r.endOn }
-      : { id: null, kind: 'EXPENSE', category: 'housing', accountId: defaultAccountId(), freq: 'MONTHLY', day: now.getDate(), month: now.getMonth() + 1, hasEnd: false };
-
-    var kindSeg = el('div', { class: 'seg', role: 'group', 'aria-label': 'ประเภท' });
-    var note = el('input', { class: 'inp', id: 'r-note', maxlength: '120', placeholder: 'เช่น ค่าเช่าห้อง, เงินเดือน, ค่างวดรถ', value: r && r.note ? r.note : '' });
-    var amount = el('input', { class: 'inp num', id: 'r-amount', type: 'number', inputmode: 'decimal', min: '0', step: '0.01', placeholder: '0', value: r ? String(r.amountSatang / 100) : '' });
-    var cats = el('div', { class: 'cats' });
-    var freqSeg = el('div', { class: 'seg', role: 'group', 'aria-label': 'ความถี่' });
-    var dayBox = el('div', { class: 'two' });
-    var endChk = el('input', { type: 'checkbox', id: 'r-end' });
-    endChk.checked = st.hasEnd;
-    var endDate = el('input', { class: 'inp', id: 'r-end-date', type: 'date', min: todayIso(), value: r && r.endOn ? r.endOn : '' });
-    var endField = el('div', { class: 'field' }, [el('label', { for: 'r-end-date', text: 'สิ้นสุดวันที่' }), endDate]);
-    var err = el('div', { class: 'err', role: 'alert' });
-    var acct = accountChips(st);
-
-    function draw() {
-      kindSeg.replaceChildren();
-      [['EXPENSE', 'รายจ่าย'], ['INCOME', 'รายรับ']].forEach(function (k) {
-        kindSeg.appendChild(el('button', { type: 'button', 'aria-pressed': String(st.kind === k[0]), text: k[1], onclick: function () {
-          if (st.kind === k[0]) return;
-          st.kind = k[0]; st.category = k[0] === 'INCOME' ? 'salary' : 'housing'; draw();
-        } }));
-      });
-      cats.replaceChildren();
-      (st.kind === 'INCOME' ? INCOME_CATS : EXPENSE_CATS).forEach(function (k) {
-        var b = el('button', { class: 'cat', type: 'button', 'aria-pressed': String(st.category === k) }, [catIcon(k), el('span', { text: catName(k) })]);
-        b.addEventListener('click', function () { st.category = k; draw(); });
-        cats.appendChild(b);
-      });
-      freqSeg.replaceChildren();
-      [['WEEKLY', 'รายสัปดาห์'], ['MONTHLY', 'รายเดือน'], ['YEARLY', 'รายปี']].forEach(function (f) {
-        freqSeg.appendChild(el('button', { type: 'button', 'aria-pressed': String(st.freq === f[0]), text: f[1], onclick: function () {
-          if (st.freq === f[0]) return;
-          st.day = f[0] === 'WEEKLY' ? isoWeekday(now) : (st.freq === 'WEEKLY' ? now.getDate() : st.day);
-          st.freq = f[0]; draw();
-        } }));
-      });
-      dayBox.replaceChildren();
-      var day = el('select', { class: 'inp', id: 'r-day', 'aria-label': st.freq === 'WEEKLY' ? 'วันในสัปดาห์' : 'วันที่' });
-      if (st.freq === 'WEEKLY') WEEKDAYS.forEach(function (w, i) { day.appendChild(el('option', { value: String(i + 1), text: 'ทุกวัน' + w })); });
-      else for (var i = 1; i <= 31; i++) day.appendChild(el('option', { value: String(i), text: 'วันที่ ' + i }));
-      day.value = String(st.day);
-      day.addEventListener('change', function () { st.day = Number(day.value); });
-      dayBox.appendChild(day);
-      if (st.freq === 'YEARLY') {
-        var mon = el('select', { class: 'inp', id: 'r-month', 'aria-label': 'เดือน' });
-        TH_MONTHS_FULL.forEach(function (m, idx) { mon.appendChild(el('option', { value: String(idx + 1), text: m })); });
-        mon.value = String(st.month);
-        mon.addEventListener('change', function () { st.month = Number(mon.value); });
-        dayBox.appendChild(mon);
-      }
-      dayBox.style.gridTemplateColumns = st.freq === 'YEARLY' ? '1fr 1fr' : '1fr';
-      endField.hidden = !endChk.checked;
-    }
-    endChk.addEventListener('change', draw);
-
-    var save = el('button', { class: 'cta', type: 'button', text: 'บันทึก' });
-    save.addEventListener('click', function () {
-      if (!(Number(amount.value) > 0)) { err.textContent = 'ใส่จำนวนเงิน'; amount.focus(); return; }
-      if (endChk.checked && !endDate.value) { err.textContent = 'เลือกวันที่สิ้นสุด'; endDate.focus(); return; }
-      save.disabled = true; err.textContent = '';
-      post('api/ledger/recurring', {
-        id: st.id, kind: st.kind, category: st.category, amount: Number(amount.value), note: note.value, accountId: st.accountId,
-        frequency: st.freq, day: st.day, month: st.freq === 'YEARLY' ? st.month : null, endOn: endChk.checked ? endDate.value : null
-      }).then(function (res) { loadSubs(); toast('บันทึกแล้ว · ลงรายการให้เองครั้งแรก ' + dayLabel(res.nextOn)); })
-        .catch(function (e) { err.textContent = e.message; save.disabled = false; });
-    });
-
-    var nodes = [el('section', { class: 'card' }, [
-      kindSeg,
-      el('div', { class: 'field' }, [el('label', { for: 'r-note', text: 'ชื่อรายการ' }), note]),
-      el('div', { class: 'field' }, [el('label', { for: 'r-amount', text: 'จำนวนเงิน (บาท)' }), amount]),
-      el('div', { class: 'field' }, [el('span', { class: 'lbl2', text: 'หมวด' }), cats]),
-      acct
-    ]), el('section', { class: 'card' }, [
-      el('div', { class: 'field' }, [el('span', { class: 'lbl2', text: 'ความถี่' }), freqSeg]),
-      dayBox,
-      el('label', { class: 'check', for: 'r-end' }, [endChk, el('span', { text: 'มีวันสิ้นสุด (เช่น ผ่อนครบ)' })]),
-      endField
-    ]), err, save];
-    if (r) {
-      nodes.push(confirmButton('เลิกรายการนี้', 'แตะอีกครั้งเพื่อยืนยัน (ที่ลงไปแล้วยังอยู่)', 'ghost danger', function (b) {
-        post('api/ledger/recurring/stop', { id: r.id }).then(function () { loadSubs(); toast('หยุดรายการประจำแล้ว'); })
-          .catch(function (e) { err.textContent = e.message; b.disabled = false; });
-      }));
-    }
-    draw();
-    show(nodes);
-  }
-
-  // ───────── notification settings ─────────
-  function openSettings() {
-    chrome(null); bar('ตั้งค่าแจ้งเตือน', loadHome);
-    var seq = navSeq;
-    show([el('div', { class: 'loading', text: 'กำลังโหลด…' })]);
-    api('api/ledger/settings').then(function (d) {
-      if (seq !== navSeq) return;
-      var enabled = el('input', { type: 'checkbox', id: 'n-on' }), subs = el('input', { type: 'checkbox', id: 'n-subs' }),
-        budget = el('input', { type: 'checkbox', id: 'n-budget' }), daily = el('input', { type: 'checkbox', id: 'n-daily' });
-      enabled.checked = d.enabled; subs.checked = d.subscriptions; budget.checked = d.budget; daily.checked = d.daily;
-      var hour = el('select', { class: 'inp', id: 'n-hour', 'aria-label': 'เวลาที่ส่ง' });
-      for (var h = 0; h < 24; h++) hour.appendChild(el('option', { value: String(h), text: pad(h) + ':00 น.' }));
-      hour.value = String(d.hour);
-      var err = el('div', { class: 'err', role: 'alert' });
-
-      function option(input, id, title, hint) {
-        return el('label', { class: 'check', for: id, style: 'align-items:flex-start' }, [input, el('span', {}, [el('span', { text: title }), el('span', { class: 'hint', style: 'display:block', text: hint })])]);
-      }
-      var kinds = [option(subs, 'n-subs', 'ค่าสมาชิก', 'เตือนก่อนตัดเงิน 1 วัน และก่อนทดลองฟรีหมด 3 วัน กับ 1 วัน'),
-        option(budget, 'n-budget', 'งบประมาณ', 'เมื่อใช้ถึง 80% และเมื่อเกินงบ (ครั้งเดียวต่อหมวดต่อเดือน)'),
-        option(daily, 'n-daily', 'เตือนให้จด', 'ถ้าวันนี้ยังไม่ได้จดอะไร (เฉพาะคนที่จดอยู่เป็นประจำ)')];
-      function sync() {
-        [subs, budget, daily, hour].forEach(function (c) { c.disabled = !enabled.checked; });
-      }
-      enabled.addEventListener('change', sync);
-      sync();
-
-      var save = el('button', { class: 'cta', type: 'button', text: 'บันทึก' });
-      save.addEventListener('click', function () {
-        save.disabled = true; err.textContent = '';
-        post('api/ledger/settings', { enabled: enabled.checked, hour: Number(hour.value), subscriptions: subs.checked, budget: budget.checked, daily: daily.checked })
-          .then(function () { loadHome(); toast('บันทึกการตั้งค่าแล้ว'); })
-          .catch(function (e) { err.textContent = e.message; save.disabled = false; });
-      });
-      show([el('section', { class: 'card' }, [
-        el('label', { class: 'check', for: 'n-on' }, [enabled, el('span', { text: 'รับแจ้งเตือนจากบอท' })]),
-        el('div', { class: 'field' }, [el('label', { for: 'n-hour', text: 'ส่งเวลา' }), hour,
-          el('span', { class: 'hint', text: 'ส่งภายในหนึ่งชั่วโมงหลังเวลานี้ แจ้งเตือนมาทางแชต LINE ของบอท' })])
-      ]), el('section', { class: 'card' }, [el('span', { class: 'lbl2', text: 'แจ้งเตือนเรื่องอะไร' })].concat(kinds)), err, save]);
-    }).catch(function (e) { if (seq === navSeq) fail(e.message); });
-  }
-
-  // ───────── demo backend (?demo=1): sample data in memory, mirrors the API shapes ─────────
-  var Demo = {
-    seq: 100,
-    init: function () {
-      var t = new Date(), y = t.getFullYear(), m = t.getMonth();
-      function d(day) { return iso(new Date(y, m, Math.min(day, t.getDate()))); }
-      var rows = [['INCOME', 'salary', 3000000, 1, 'เงินเดือน'], ['INCOME', 'freelance', 250000, 17, 'งานโลโก้'], ['EXPENSE', 'bills', 125000, 18, 'ค่าไฟ'],
-        ['EXPENSE', 'food', 6500, 18, 'กาแฟ'], ['EXPENSE', 'transport', 8400, 17, 'BTS'], ['EXPENSE', 'food', 6000, 17, 'ข้าวมันไก่'],
-        ['EXPENSE', 'shopping', 21600, 17, 'เสื้อยืด'], ['EXPENSE', 'fun', 39000, 16, 'ดูหนัง'], ['EXPENSE', 'food', 610000, 10, ''],
-        ['EXPENSE', 'transport', 306600, 8, 'เติมน้ำมัน'], ['EXPENSE', 'housing', 300000, 3, 'ค่าห้อง'], ['EXPENSE', 'shopping', 226400, 5, '']];
-      this.entries = rows.map(function (r, i) { return { id: i + 1, kind: r[0], category: r[1], amountSatang: r[2], date: d(r[3]), note: r[4] || null, source: i === 2 ? 'SLIP' : 'LIFF' }; });
-      var lastMonth = function (day) { return iso(new Date(y, m - 1, day)); };
-      this.entries.push({ id: 90, kind: 'EXPENSE', category: 'bills', amountSatang: 118000, date: lastMonth(18), note: 'ค่าไฟ', source: 'SLIP' },
-        { id: 91, kind: 'EXPENSE', category: 'food', amountSatang: 25000, date: lastMonth(9), note: 'ข้าวเย็นกับเพื่อน', source: 'CHAT' },
-        { id: 92, kind: 'INCOME', category: 'salary', amountSatang: 3000000, date: lastMonth(1), note: 'เงินเดือน', source: 'LIFF' });
-      this.settings = { enabled: true, hour: 9, subscriptions: true, budget: true, daily: false };
-      this.accounts = [{ id: 1, name: 'เงินสด', type: 'CASH', openingSatang: 300000, isDefault: false },
-        { id: 2, name: 'KBank', type: 'BANK', openingSatang: 2000000, isDefault: true },
-        { id: 3, name: 'บัตร KTC', type: 'CARD', openingSatang: 0, isDefault: false }];
-      this.archived = [{ id: 9, name: 'ออมสินเก่า' }];
-      this.transfers = [{ id: 1, fromId: 2, toId: 1, amountSatang: 300000, date: d(2), note: 'ถอนเงินสด' }];
-      var acctOf = { 1: 2, 2: 2, 3: 2, 4: 1, 5: 1, 6: 1, 7: 3, 8: 3 };   // entry id -> account id
-      this.entries.forEach(function (e) { if (acctOf[e.id]) e.accountId = acctOf[e.id]; });
-      function nextMonthDay(day) { var n = new Date(y, m, day); if (n < new Date(y, m, t.getDate())) n = new Date(y, m + 1, day); return iso(n); }
-      this.recurring = [
-        { id: 1, kind: 'EXPENSE', category: 'housing', amountSatang: 800000, note: 'ค่าเช่าห้อง', accountId: 2, frequency: 'MONTHLY', day: 1, month: null, nextOn: nextMonthDay(1), endOn: null },
-        { id: 2, kind: 'INCOME', category: 'salary', amountSatang: 3000000, note: 'เงินเดือน', accountId: 2, frequency: 'MONTHLY', day: 25, month: null, nextOn: nextMonthDay(25), endOn: null },
-        { id: 3, kind: 'EXPENSE', category: 'transport', amountSatang: 450000, note: 'ค่างวดรถ', accountId: 2, frequency: 'MONTHLY', day: 5, month: null, nextOn: nextMonthDay(5), endOn: iso(new Date(y + 1, 5, 5)) },
-        { id: 4, kind: 'EXPENSE', category: 'food', amountSatang: 50000, note: 'ค่าขนมลูก', accountId: 1, frequency: 'WEEKLY', day: 1, month: null, nextOn: iso(new Date(y, m, t.getDate() + ((8 - (t.getDay() || 7)) % 7))), endOn: null }
-      ];
-      this.budgets = [{ category: 'food', limitSatang: 800000 }, { category: 'transport', limitSatang: 300000 }, { category: 'shopping', limitSatang: 400000 }];
-      function sub(id, name, amt, cycle, day, mon, next, trial, cat) {
-        var nd = parseIso(next), dl = Math.round((nd - new Date(y, m, t.getDate())) / 864e5);
-        return { id: id, name: name, category: cat || 'fun', amountSatang: amt, monthlySatang: cycle === 'YEARLY' ? Math.round(amt / 12) : amt, cycle: cycle, day: day, month: mon,
-          nextChargeOn: next, daysLeft: dl, trialEndsOn: trial, inTrial: !!trial };
-      }
-      function inDays(n) { return iso(new Date(y, m, t.getDate() + n)); }
-      this.subs = [
-        { sub: sub(1, 'Spotify', 12900, 'MONTHLY', parseIso(inDays(2)).getDate(), null, inDays(2)), chargedThisMonthOn: null },
-        { sub: sub(2, 'iCloud+ 200GB', 3500, 'MONTHLY', parseIso(inDays(4)).getDate(), null, inDays(4)), chargedThisMonthOn: null },
-        { sub: sub(3, 'ฟิตเนส', 120000, 'MONTHLY', 1, null, iso(new Date(y, m + 1, 1)), null, 'health'), chargedThisMonthOn: iso(new Date(y, m, 1)) },
-        { sub: sub(4, 'Netflix Premium', 41900, 'MONTHLY', 5, null, iso(new Date(y, m + 1, 5))), chargedThisMonthOn: iso(new Date(y, m, 5)) },
-        { sub: sub(5, 'Adobe Creative Cloud', 760000, 'YEARLY', 12, 3, iso(new Date(y + 1, 2, 12)), null, 'other'), chargedThisMonthOn: null },
-        { sub: sub(6, 'Canva Pro', 30000, 'MONTHLY', parseIso(inDays(6)).getDate(), null, inDays(6), inDays(6)), chargedThisMonthOn: null }
-      ];
-    },
-    month: function (path) { var m = /month=(\d{4}-\d{2})/.exec(path); return m ? m[1] : monthKey(new Date()); },
-    handle: function (path, opts) {
-      var self = this, body = opts && opts.body ? JSON.parse(opts.body) : null;
-      return new Promise(function (res, rej) { setTimeout(function () { try { res(self.route(path, body)); } catch (e) { rej(e); } }, 120); });
-    },
-    balance: function (id) {
-      var a = this.accounts.filter(function (x) { return x.id === id; })[0], v = a.openingSatang;
-      this.entries.forEach(function (e) { if (e.accountId === id) v += e.kind === 'INCOME' ? e.amountSatang : -e.amountSatang; });
-      this.transfers.forEach(function (t) { if (t.toId === id) v += t.amountSatang; if (t.fromId === id) v -= t.amountSatang; });
-      return v;
-    },
-    route: function (path, b) {
-      var self = this;
-      if (path.indexOf('api/ledger/settings') === 0) {
-        if (b) { this.settings = { enabled: b.enabled, hour: b.hour, subscriptions: b.subscriptions, budget: b.budget, daily: b.daily }; }
-        return this.settings;
-      }
-      if (path.indexOf('api/ledger/accounts/archive') === 0) {
-        var gone = this.accounts.filter(function (a) { return a.id === b.id; })[0];
-        this.accounts = this.accounts.filter(function (a) { return a.id !== b.id; });
-        this.archived.push({ id: gone.id, name: gone.name });
-        return { archived: true };
-      }
-      if (path.indexOf('api/ledger/accounts') === 0 && b) {
-        if (!b.name.trim()) throw new Error('ใส่ชื่อบัญชี');
-        var acc = b.id ? this.accounts.filter(function (a) { return a.id === b.id; })[0] : { id: ++this.seq };
-        if (!b.id) this.accounts.push(acc);
-        acc.name = b.name.trim(); acc.type = b.type; acc.openingSatang = Math.round(b.opening * 100);
-        acc.isDefault = b.isDefault || this.accounts.length === 1;
-        if (acc.isDefault) this.accounts.forEach(function (a) { if (a !== acc) a.isDefault = false; });
-        return { id: acc.id, name: acc.name, isDefault: acc.isDefault };
-      }
-      if (path.indexOf('api/ledger/accounts') === 0) {
-        var list = this.accounts.map(function (a) { return Object.assign({}, a, { balanceSatang: self.balance(a.id) }); });
-        return { totalSatang: list.reduce(function (s, a) { return s + a.balanceSatang; }, 0), accounts: list, archived: this.archived,
-          transfers: this.transfers.slice().sort(function (a, c) { return a.date < c.date ? 1 : -1; }) };
-      }
-      if (path.indexOf('api/ledger/transfers/delete') === 0) { this.transfers = this.transfers.filter(function (t) { return t.id !== b.id; }); return { deleted: true }; }
-      if (path.indexOf('api/ledger/transfers') === 0) {
-        if (b.fromId === b.toId) throw new Error('เลือกบัญชีต้นทางและปลายทางคนละบัญชี');
-        this.transfers.push({ id: ++this.seq, fromId: b.fromId, toId: b.toId, amountSatang: Math.round(b.amount * 100), date: b.date, note: b.note || null });
-        return { id: this.seq };
-      }
-      if (path.indexOf('api/ledger/recurring/stop') === 0) { this.recurring = this.recurring.filter(function (r) { return r.id !== b.id; }); return { stopped: true }; }
-      if (path.indexOf('api/ledger/recurring') === 0 && b) {
-        var rec = b.id ? this.recurring.filter(function (r) { return r.id === b.id; })[0] : { id: ++this.seq };
-        if (!b.id) this.recurring.push(rec);
-        var today0 = new Date(); today0.setHours(0, 0, 0, 0);
-        var nx = new Date(today0);
-        if (b.frequency === 'WEEKLY') { while ((nx.getDay() || 7) !== b.day) nx.setDate(nx.getDate() + 1); }
-        else if (b.frequency === 'MONTHLY') { nx = new Date(today0.getFullYear(), today0.getMonth(), b.day); if (nx < today0) nx = new Date(today0.getFullYear(), today0.getMonth() + 1, b.day); }
-        else { nx = new Date(today0.getFullYear(), b.month - 1, b.day); if (nx < today0) nx = new Date(today0.getFullYear() + 1, b.month - 1, b.day); }
-        Object.assign(rec, { kind: b.kind, category: b.category, amountSatang: Math.round(b.amount * 100), note: (b.note || '').trim() || null, accountId: b.accountId || null,
-          frequency: b.frequency, day: b.day, month: b.month, nextOn: iso(nx), endOn: b.endOn || null });
-        return rec;
-      }
-      if (path.indexOf('api/ledger/recurring') === 0) {
-        var mon = function (r) { return r.frequency === 'WEEKLY' ? Math.round(r.amountSatang * 52 / 12) : r.frequency === 'YEARLY' ? Math.round(r.amountSatang / 12) : r.amountSatang; };
-        var sum = function (kind) { return self.recurring.filter(function (r) { return r.kind === kind; }).reduce(function (s, r) { return s + mon(r); }, 0); };
-        return { monthlyIncomeSatang: sum('INCOME'), monthlyExpenseSatang: sum('EXPENSE'), items: this.recurring.slice().sort(function (a, c) { return a.nextOn < c.nextOn ? -1 : 1; }) };
-      }
-      var mk = this.month(path), inMonth = this.entries.filter(function (e) { return e.date.slice(0, 7) === mk; });
-      function total(kind, list) { return list.filter(function (e) { return e.kind === kind; }).reduce(function (s, e) { return s + e.amountSatang; }, 0); }
-      var monthly = this.subs.reduce(function (s, x) { return s + x.sub.monthlySatang; }, 0);
-      if (path.indexOf('api/ledger/home') === 0) {
-        var sorted = this.entries.slice().sort(function (a, c) { return a.date < c.date ? 1 : a.date > c.date ? -1 : c.id - a.id; });
-        var next = this.subs.map(function (x) { return x.sub; }).sort(function (a, c) { return a.daysLeft - c.daysLeft; })[0];
-        return { month: mk, incomeSatang: total('INCOME', inMonth), expenseSatang: total('EXPENSE', inMonth),
-          budgets: this.budgets.map(function (bg) { return { category: bg.category, limitSatang: bg.limitSatang, spentSatang: inMonth.filter(function (e) { return e.kind === 'EXPENSE' && e.category === bg.category; }).reduce(function (s, e) { return s + e.amountSatang; }, 0) }; }),
-          subscriptions: { count: this.subs.length, monthlySatang: monthly, next: next },
-          accounts: { count: this.accounts.length, totalSatang: this.accounts.reduce(function (s, a) { return s + self.balance(a.id); }, 0) }, recent: sorted.slice(0, 5) };
-      }
-      if (path.indexOf('api/ledger/search') === 0) {
-        var qs = new URLSearchParams(path.split('?')[1] || ''), qq = (qs.get('q') || '').toLowerCase(), qcat = qs.get('category') || '', qkind = qs.get('kind') || '', qacct = qs.get('accountId') || '';
-        var found = this.entries.filter(function (e) {
-          if (qkind && e.kind !== qkind) return false;
-          if (qcat && e.category !== qcat) return false;
-          if (qacct && String(e.accountId) !== qacct) return false;
-          if (!qq) return true;
-          return (e.note || '').toLowerCase().indexOf(qq) >= 0 || catName(e.category).toLowerCase().indexOf(qq) >= 0 || String(e.amountSatang / 100) === qq;
-        }).sort(function (a, c) { return a.date < c.date ? 1 : a.date > c.date ? -1 : c.id - a.id; });
-        return { count: found.length, truncated: false, entries: found,
-          incomeSatang: total('INCOME', found), expenseSatang: total('EXPENSE', found) };
-      }
-      if (path.indexOf('api/ledger/export-link') === 0) {
-        var n = b.scope === 'all' ? this.entries.length : b.scope === 'year' ? this.entries.filter(function (e) { return e.date.slice(0, 4) === String(new Date().getFullYear()); }).length : inMonth.length;
-        return { url: '#demo', count: n, label: b.scope === 'all' ? 'ทั้งหมด' : b.scope === 'year' ? 'ปี ' + (new Date().getFullYear() + 543) : monthLabel(mk), minutes: 10 };
-      }
-      if (path.indexOf('api/ledger/entries/delete') === 0) { this.entries = this.entries.filter(function (e) { return e.id !== b.id; }); return { deleted: true }; }
-      if (path.indexOf('api/ledger/entries') === 0 && b) {
-        var e = b.id ? this.entries.filter(function (x) { return x.id === b.id; })[0] : { id: ++this.seq, source: 'LIFF' };
-        if (!b.id) this.entries.push(e);
-        e.kind = b.kind; e.category = b.category; e.amountSatang = Math.round(b.amount * 100); e.note = (b.note || '').trim() || null; e.date = b.date; e.accountId = b.accountId || null;
-        return e;
-      }
-      if (path.indexOf('api/ledger/entries') === 0) {
-        return { month: mk, entries: inMonth.slice().sort(function (a, c) { return a.date < c.date ? 1 : a.date > c.date ? -1 : c.id - a.id; }) };
-      }
-      if (path.indexOf('api/ledger/report') === 0) {
-        var exp = inMonth.filter(function (e) { return e.kind === 'EXPENSE'; }), by = {}, days = new Date(+mk.slice(0, 4), +mk.slice(5), 0).getDate(), byDay = [];
-        exp.forEach(function (e) { by[e.category] = (by[e.category] || 0) + e.amountSatang; });
-        for (var i = 1; i <= days; i++) byDay.push({ day: i, satang: exp.filter(function (e) { return +e.date.slice(8) === i; }).reduce(function (s, e) { return s + e.amountSatang; }, 0) });
-        var elapsed = mk === monthKey(new Date()) ? new Date().getDate() : days;
-        return { month: mk, incomeSatang: total('INCOME', inMonth), expenseSatang: total('EXPENSE', inMonth), avgPerDaySatang: Math.floor(total('EXPENSE', inMonth) / elapsed),
-          byCategory: Object.keys(by).map(function (k) { return { category: k, satang: by[k] }; }).sort(function (a, c) { return c.satang - a.satang; }), byDay: byDay };
-      }
-      if (path.indexOf('api/ledger/budgets') === 0) { this.budgets = b.items.filter(function (i) { return i.limit > 0; }).map(function (i) { return { category: i.category, limitSatang: Math.round(i.limit * 100) }; }); return { saved: true }; }
-      if (path.indexOf('api/ledger/subscriptions/stop') === 0) { this.subs = this.subs.filter(function (x) { return x.sub.id !== b.id; }); return { stopped: true }; }
-      if (path.indexOf('api/ledger/subscriptions') === 0 && b) {
-        var found = b.id ? this.subs.filter(function (x) { return x.sub.id === b.id; })[0] : null;
-        var amt = Math.round(b.amount * 100), t = new Date(), nd = new Date(t.getFullYear(), t.getMonth(), b.day);
-        if (nd < new Date(t.getFullYear(), t.getMonth(), t.getDate())) nd.setMonth(nd.getMonth() + 1);
-        var s = { id: b.id || ++this.seq, name: b.name.trim(), category: b.category, amountSatang: amt, monthlySatang: b.cycle === 'YEARLY' ? Math.round(amt / 12) : amt, cycle: b.cycle, day: b.day, month: b.month,
-          nextChargeOn: b.trialEndsOn || iso(nd), daysLeft: Math.round(((b.trialEndsOn ? parseIso(b.trialEndsOn) : nd) - new Date(t.getFullYear(), t.getMonth(), t.getDate())) / 864e5), trialEndsOn: b.trialEndsOn, inTrial: !!b.trialEndsOn };
-        if (found) found.sub = s; else this.subs.push({ sub: s, chargedThisMonthOn: null });
-        return s;
-      }
-      if (path.indexOf('api/ledger/subscriptions') === 0) {
-        var items = this.subs.slice().sort(function (a, c) { return a.sub.daysLeft - c.sub.daysLeft; });
-        return { monthlySatang: monthly, yearlySatang: this.subs.reduce(function (s, x) { return s + (x.sub.cycle === 'YEARLY' ? x.sub.amountSatang : x.sub.amountSatang * 12); }, 0),
-          leftThisMonthSatang: this.subs.filter(function (x) { return !x.chargedThisMonthOn && !x.sub.inTrial && x.sub.cycle === 'MONTHLY' && x.sub.nextChargeOn.slice(0, 7) === monthKey(new Date()); }).reduce(function (s, x) { return s + x.sub.amountSatang; }, 0),
-          items: items };
-      }
-      throw new Error('demo: unknown ' + path);
-    }
-  };
-
-  // ───────── start ─────────
-  buildTabs();
-  function start(q) {
-    // accounts first: the pickers and the names on records need them
-    return refreshAccounts().catch(function () { return null; }).then(function () { return route(q); });
-  }
-  function route(q) {
-    var tab = q && q.get('tab');
-    if (tab === 'history' && q && q.get('q')) hist.q = q.get('q').slice(0, 60);
-    if (tab === 'settings') { current = 'home'; return openSettings(); }
-    if (tab === 'new') { current = 'home'; return openEntryForm(null, q.get('kind') === 'income' ? 'INCOME' : 'EXPENSE'); }
-    if (tab === 'budget') {   // rich menu: straight to the budget form, back goes to the home screen
-      current = 'home'; chrome(null);
-      return api('api/ledger/home?month=' + month).then(function (d) { openBudgets(d.budgets); }).catch(function (e) { fail(e.message); });
-    }
-    if (tab === 'subs' && q && q.get('view') === 'rec') subsView = 'rec';
-    return open(['home', 'history', 'report', 'subs', 'accounts'].indexOf(tab) >= 0 ? tab : 'home');
-  }
-  if (DEMO) { Demo.init(); start(new URLSearchParams(location.search)); return; }
-
-  fetch(API + 'api/config').then(function (r) { return r.json(); }).then(function (cfg) {
-    return liff.init({ liffId: cfg.liffId });
-  }).then(function () {
-    if (!liff.isLoggedIn()) { liff.login(); return; }
-    idToken = liff.getIDToken();
-    if (!idToken) { fail('ไม่พบข้อมูลผู้ใช้ ลองเปิดจากแอป LINE อีกครั้ง'); return; }
-    // ?tab=new | history | report | subs (rich menu buttons); liff.state carries it on the first open
-    var q = new URLSearchParams(location.search);
-    var st = q.get('liff.state') ? new URLSearchParams(q.get('liff.state').replace(/^[^?]*\?/, '')) : null;
-    return start(st && st.get('tab') ? st : q);
-  }).catch(function (e) { fail(e.message || 'โหลดไม่สำเร็จ'); });
-})();
 </script>
 </body>
 </html>

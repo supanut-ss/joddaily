@@ -5,7 +5,7 @@ Two separate deployments, like Pay_Yet's:
 | Part | What | Where (planned) |
 |---|---|---|
 | **API** | the ASP.NET Core app: LINE webhook, the LIFF page's API, the hourly job, CSV download. **No frontend files inside.** | the same site as Pay_Yet's API (`api.drivetodev.online`), in its own folder `joddaily` as a sub-application: `https://api.drivetodev.online/joddaily` |
-| **Frontend** | the LIFF page (`web/`, static: `index.html`, `config.js`, icons) | a static site of its own: **`https://joddaily.drivetodev.online`** (Plesk subdomain `joddaily` of `drivetodev.online`, FTP folder `joddaily.drivetodev.online`), like Pay_Yet's `payyet.drivetodev.online` |
+| **Frontend** | a landing page at `/` (features, add-friend button) and the LIFF page at `/app/` (`web/`, static: `index.html`, `app/index.html`, `config.js`, icons); inside LINE, `/` passes on to `/app/` | a static site of its own: **`https://joddaily.drivetodev.online`** (Plesk subdomain `joddaily` of `drivetodev.online`, FTP folder `joddaily.drivetodev.online`), like Pay_Yet's `payyet.drivetodev.online` |
 
 JodDaily shares nothing with Pay_Yet except the host: its own folder, database, DB user and LINE channels. The browser calls the API from the frontend site cross-origin; the API allows that one origin (`App:WebBaseUrl`).
 
