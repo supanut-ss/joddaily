@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>JodDaily.Api</AssemblyName>
+    <RootNamespace>JodDaily</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- the shared Plesk app pool is 32-bit: out-of-process behind IIS, and a small memory footprint -->
+    <AspNetCoreHostingModel>OutOfProcess</AspNetCoreHostingModel>
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.11" />
+    <PackageReference Include="EFCore.NamingConventions" Version="8.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- rich menu image uploaded to LINE by POST /jobs/richmenu -->
+    <Content Include="richmenu\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="JodDaily.Tests" />
+  </ItemGroup>
+</Project>

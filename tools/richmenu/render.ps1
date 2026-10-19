@@ -1,7 +1,7 @@
-# Renders tools/richmenu/menu.html to src/LineJod.Api/richmenu/richmenu.png (2500 x 1686) with headless Edge or Chrome.
+# Renders tools/richmenu/menu.html to src/JodDaily.Api/richmenu/richmenu.png (2500 x 1686) with headless Edge or Chrome.
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $html = Join-Path $PSScriptRoot 'menu.html'
-$out = Join-Path $root 'src/LineJod.Api/richmenu/richmenu.png'
+$out = Join-Path $root 'src/JodDaily.Api/richmenu/richmenu.png'
 New-Item -ItemType Directory -Force (Split-Path $out) | Out-Null
 
 $browser = @(
@@ -11,7 +11,7 @@ $browser = @(
 if (-not $browser) { throw 'Edge or Chrome not found' }
 
 # own profile dir: a running Edge/Chrome would otherwise swallow the command and exit without writing the file
-$profile = Join-Path $env:TEMP 'linejod-richmenu-profile'
+$profile = Join-Path $env:TEMP 'joddaily-richmenu-profile'
 $cliArgs = @('--headless=new', '--disable-gpu', '--hide-scrollbars', '--force-device-scale-factor=1', "--user-data-dir=$profile",
   '--window-size=2500,1686', "--screenshot=$out", ('file:///' + $html.Replace('\', '/')))
 Start-Process -FilePath $browser -ArgumentList $cliArgs -Wait -NoNewWindow

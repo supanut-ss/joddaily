@@ -19,13 +19,13 @@ $out = Join-Path $root "publish"
 
 if (-not $SkipTests) {
     Write-Host "== tests"
-    dotnet test (Join-Path $root "LineJod.slnx") --nologo -v q
+    dotnet test (Join-Path $root "JodDaily.slnx") --nologo -v q
     if ($LASTEXITCODE -ne 0) { throw "Tests failed: not publishing." }
 }
 
 Write-Host "== publish ($Runtime, self-contained)"
 if (Test-Path $out) { Remove-Item $out -Recurse -Force }
-dotnet publish (Join-Path $root "src/LineJod.Api/LineJod.Api.csproj") -c Release -r $Runtime --self-contained true -o $out --nologo -v q
+dotnet publish (Join-Path $root "src/JodDaily.Api/JodDaily.Api.csproj") -c Release -r $Runtime --self-contained true -o $out --nologo -v q
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
 
 # secrets never travel inside the package
@@ -36,7 +36,7 @@ New-Item -ItemType Directory -Force (Join-Path $out "logs") | Out-Null
 
 $webConfig = Join-Path $out "web.config"
 if (-not (Test-Path $webConfig)) { throw "web.config was not generated." }
-if ((Get-Content $webConfig -Raw) -notmatch 'hostingModel="outofprocess"') { Write-Warning "web.config is not out-of-process; check <AspNetCoreHostingModel> in LineJod.Api.csproj." }
+if ((Get-Content $webConfig -Raw) -notmatch 'hostingModel="outofprocess"') { Write-Warning "web.config is not out-of-process; check <AspNetCoreHostingModel> in JodDaily.Api.csproj." }
 
 $size = [math]::Round(((Get-ChildItem $out -Recurse -File | Measure-Object Length -Sum).Sum / 1MB), 1)
 Write-Host "== done: $out ($size MB). Next: docs/DEPLOY.md"

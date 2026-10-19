@@ -1,8 +1,8 @@
 <#
-    Single-host deployment for LineJod on the shared Plesk host (the same host as Pay_Yet, nothing shared with it).
+    Single-host deployment for JodDaily on the shared Plesk host (the same host as Pay_Yet, nothing shared with it).
 
-      API       ASP.NET Core app, a sub-application of the API site:  https://api.drivetodev.online/linejod   (FTP folder api.drivetodev.online/linejod)
-      Frontend  static LIFF page, a site of its own:                  https://linejod.drivetodev.online      (FTP folder linejod.drivetodev.online)
+      API       ASP.NET Core app, a sub-application of the API site:  https://api.drivetodev.online/joddaily   (FTP folder api.drivetodev.online/joddaily)
+      Frontend  static LIFF page, a site of its own:                  https://joddaily.drivetodev.online      (FTP folder joddaily.drivetodev.online)
 
     API flow:  0. validate target + production config   1. unit tests   2. dotnet publish (win-x86 self-contained)
                3. stage config into the publish folder  4. app_offline.htm  5. upload files  6. bring online
@@ -22,12 +22,12 @@ param(
     [Parameter(Mandatory = $true)] [ValidateNotNullOrEmpty()] [string]$Password,
 
     # FTP paths relative to the FTP login root (the subscription root). Pinned below on purpose.
-    [string]$RemotePath = "api.drivetodev.online/linejod",
-    [string]$PublicBaseUrl = "https://api.drivetodev.online/linejod",
+    [string]$RemotePath = "api.drivetodev.online/joddaily",
+    [string]$PublicBaseUrl = "https://api.drivetodev.online/joddaily",
 
     # The static frontend lives in its own Plesk subdomain site.
-    [string]$WebRemotePath = "linejod.drivetodev.online",
-    [string]$WebPublicUrl = "https://linejod.drivetodev.online",
+    [string]$WebRemotePath = "joddaily.drivetodev.online",
+    [string]$WebPublicUrl = "https://joddaily.drivetodev.online",
     [ValidateSet("all", "api", "web")] [string]$Component = "all",   # api = backend only, web = frontend only
     [string]$ConfigPath = "",
 
@@ -44,25 +44,25 @@ param(
 $ErrorActionPreference = "Stop"
 $repoRoot = $PSScriptRoot
 if (-not $ConfigPath) { $ConfigPath = Join-Path $repoRoot "deploy\appsettings.Production.json" }
-$dryRun = $env:LINEJOD_DEPLOY_DRY_RUN -eq "1"
+$dryRun = $env:JODDAILY_DEPLOY_DRY_RUN -eq "1"
 
 # ---- 0. Guard rails -------------------------------------------------------------------------------------
 # The FTP login root is the whole subscription (Pay_Yet's folders, other domains and subdomains). Refuse anything but our own
 # folders, because -PruneRemoteRootFiles below deletes files in the target folder that are not part of this deployment.
 # Never allow 'api.drivetodev.online' itself: that is Pay_Yet's application root.
-$allowedApiFolders = @("api.drivetodev.online/linejod", "linejod-api.drivetodev.online")   # the second one: fallback if the sub-application is not possible
+$allowedApiFolders = @("api.drivetodev.online/joddaily", "joddaily-api.drivetodev.online")   # the second one: fallback if the sub-application is not possible
 $target = $RemotePath.Trim('/').ToLowerInvariant()
 if ($allowedApiFolders -notcontains $target) {
     throw "Refusing to deploy: RemotePath must be one of '$($allowedApiFolders -join "', '")' (got '$RemotePath')."
 }
 $webTarget = $WebRemotePath.Trim('/').ToLowerInvariant()
-if ($webTarget -ne "linejod.drivetodev.online") {
-    throw "Refusing to deploy: WebRemotePath must be 'linejod.drivetodev.online' (got '$WebRemotePath')."
+if ($webTarget -ne "joddaily.drivetodev.online") {
+    throw "Refusing to deploy: WebRemotePath must be 'joddaily.drivetodev.online' (got '$WebRemotePath')."
 }
 $PublicBaseUrl = $PublicBaseUrl.TrimEnd('/')
 $WebPublicUrl = $WebPublicUrl.TrimEnd('/')
 $webOrigin = ([Uri]$WebPublicUrl).GetLeftPart([UriPartial]::Authority)
-$expectedPathBase = ([Uri]$PublicBaseUrl).AbsolutePath.TrimEnd('/')    # "/linejod" or "" - must equal App:PathBase in the app config
+$expectedPathBase = ([Uri]$PublicBaseUrl).AbsolutePath.TrimEnd('/')    # "/joddaily" or "" - must equal App:PathBase in the app config
 
 $pwsh = if (Get-Command powershell -ErrorAction SilentlyContinue) { "powershell" } else { "pwsh" }
 $uploader = Join-Path $repoRoot "upload-ftp.ps1"
@@ -101,11 +101,11 @@ function Deploy-Web {
     $webStage = Join-Path $repoRoot "deploy\web"
     if (Test-Path -LiteralPath $webStage) { Remove-Item -LiteralPath $webStage -Recurse -Force }
     Copy-Item -LiteralPath $webDir -Destination $webStage -Recurse
-    $configJs = "// Written by the deploy script. Where the LineJod API is.`nwindow.LINEJOD_API = '$PublicBaseUrl/';`n"
+    $configJs = "// Written by the deploy script. Where the JodDaily API is.`nwindow.JODDAILY_API = '$PublicBaseUrl/';`n"
     [IO.File]::WriteAllText((Join-Path $webStage "config.js"), $configJs, (New-Object System.Text.UTF8Encoding($false)))
 
     Write-Host "Uploading frontend to ftp://$Server/$webTarget ..." -ForegroundColor Yellow
-    $webManifest = Join-Path $repoRoot ".deploy-cache\linejod-web-manifest.json"
+    $webManifest = Join-Path $repoRoot ".deploy-cache\joddaily-web-manifest.json"
     & $pwsh -NoProfile -ExecutionPolicy Bypass -File $uploader -Server $Server -Username $Username -Password $Password `
         -LocalPath $webStage -RemotePath $webTarget -ManifestPath $webManifest -PruneRemoteRootFiles @dryArgs
     if ($LASTEXITCODE -ne 0) { throw "Uploading the frontend failed (exit code $LASTEXITCODE). The API is unaffected; fix and rerun." }
@@ -114,7 +114,7 @@ function Deploy-Web {
     $webProblems = @()
     try {
         $page = Invoke-WebRequest -Uri "$WebPublicUrl/" -UseBasicParsing -TimeoutSec 30
-        if ($page.Content -notmatch "config\.js") { $webProblems += "$WebPublicUrl/ does not look like the LineJod page" }
+        if ($page.Content -notmatch "config\.js") { $webProblems += "$WebPublicUrl/ does not look like the JodDaily page" }
     } catch { $webProblems += "$WebPublicUrl/ -> $($_.Exception.Message)" }
     try {
         $cfgJs = Invoke-WebRequest -Uri "$WebPublicUrl/config.js" -UseBasicParsing -TimeoutSec 30
@@ -168,7 +168,7 @@ if ($mismatch.Count -gt 0) { throw "$ConfigPath does not match this deployment: 
 # ---- 1. Tests ---------------------------------------------------------------------------------------------
 if (-not $SkipTests) {
     Write-Host "1. Running tests..." -ForegroundColor Yellow
-    & dotnet test "$repoRoot\LineJod.slnx" -c Release --nologo -v q
+    & dotnet test "$repoRoot\JodDaily.slnx" -c Release --nologo -v q
     if ($LASTEXITCODE -ne 0) { throw "Tests failed - not deploying." }
 }
 
@@ -186,7 +186,7 @@ New-Item -ItemType Directory -Path $offlineDir | Out-Null
 
 $mode = if ($FrameworkDependent) { "framework-dependent" } else { "$Runtime self-contained" }
 Write-Host "2. Publishing ($mode)..." -ForegroundColor Yellow
-$publishArgs = @("publish", "$repoRoot\src\LineJod.Api", "-c", "Release", "-o", $appDir, "--nologo", "-v", "q")
+$publishArgs = @("publish", "$repoRoot\src\JodDaily.Api", "-c", "Release", "-o", $appDir, "--nologo", "-v", "q")
 if (-not $FrameworkDependent) { $publishArgs += @("-r", $Runtime, "--self-contained", "true") }
 & dotnet @publishArgs
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
@@ -233,7 +233,7 @@ if ($check.Contains([string][char]0xFFFD) -or $check -notmatch '\p{IsThai}') {
     throw "Maintenance page was not written as valid UTF-8 Thai text."
 }
 
-$manifestPath = Join-Path $repoRoot ".deploy-cache\linejod-manifest.json"
+$manifestPath = Join-Path $repoRoot ".deploy-cache\joddaily-manifest.json"
 
 function Assert-UploadSucceeded([string]$Stage, [int]$ExitCode) {
     if ($ExitCode -ne 0) {
@@ -296,12 +296,12 @@ try {
         throw "$healthUrl did not return HTTP 200 after $HealthCheckAttempts attempts (last: $last). With -StdoutLog the reason is in $target/logs/ on the server."
     }
 
-    # Extra checks: status page served by LineJod (not Pay_Yet), config reached the app, webhook and API reject anonymous calls,
+    # Extra checks: status page served by JodDaily (not Pay_Yet), config reached the app, webhook and API reject anonymous calls,
     # the job is key-guarded, and the frontend's origin is allowed.
     $problems = @()
     try {
         $root = Invoke-RestMethod -Uri "$PublicBaseUrl/" -TimeoutSec 30
-        if ($root.app -ne "LineJod API") { $problems += "$PublicBaseUrl/ is not answered by LineJod (is the folder an IIS application?)" }
+        if ($root.app -ne "JodDaily API") { $problems += "$PublicBaseUrl/ is not answered by JodDaily (is the folder an IIS application?)" }
     } catch { $problems += "API status at /: $($_.Exception.Message)" }
 
     try {

@@ -1,4 +1,4 @@
-# Deploy the static frontend only (https://linejod.drivetodev.online).
+# Deploy the static frontend only (https://joddaily.drivetodev.online).
 # FTP credentials come from deploy.credentials.ps1 (git-ignored; template: deploy.credentials.example.ps1).
 $ErrorActionPreference = "Stop"
 . "$PSScriptRoot\deploy.credentials.ps1"

@@ -180,10 +180,10 @@
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script>
 (function () {
-  // Where the API is: window.LINEJOD_API from config.js (the page and the API are different sites).
+  // Where the API is: window.JODDAILY_API from config.js (the page and the API are different sites).
   // Without it (local preview) the API is taken to be next to the page: the folder of the page URL.
   var API = (function () {
-    var configured = String(window.LINEJOD_API || '').trim();
+    var configured = String(window.JODDAILY_API || '').trim();
     if (configured) return configured.replace(/\/*$/, '/');
     var p = location.pathname;
     if (p.charAt(p.length - 1) === '/') return p;

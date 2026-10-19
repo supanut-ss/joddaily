@@ -1,4 +1,4 @@
-# Deploy the API (https://api.drivetodev.online/linejod).
+# Deploy the API (https://api.drivetodev.online/joddaily).
 # FTP credentials come from deploy.credentials.ps1 (git-ignored; template: deploy.credentials.example.ps1).
 $ErrorActionPreference = "Stop"
 . "$PSScriptRoot\deploy.credentials.ps1"
