@@ -81,6 +81,11 @@
   .cta-box h2 { color:#fff; }
   .cta-box p { margin:0 auto 22px; max-width:30em; opacity:.92; }
   .cta-box .btn { background:#fff; color:#14532D; border-color:#fff; }
+  .qr-row { display:flex; flex-wrap:wrap; gap:22px; align-items:center; justify-content:center; }
+  .qr { width:180px; height:180px; background:#fff; border-radius:20px; padding:10px; }
+  .qr-text { display:grid; gap:10px; justify-items:center; text-align:center; }
+  .qr-text strong { font:700 20px var(--f-display); }
+  @media (max-width:699px) { .qr-row .qr { display:none; } }   /* on a phone the button opens LINE directly; the QR is for scanning from another screen */
   footer { padding:28px 0 48px; color:var(--muted); font-size:14px; text-align:center; }
   footer p { margin:4px auto; max-width:40em; }
   @media (min-width:700px) {
@@ -108,7 +113,7 @@
         <h1>จดรายรับรายจ่าย<br><em>แค่พิมพ์บรรทัดเดียว</em></h1>
         <p class="lead">พิมพ์ <code>กาแฟ 65</code> ในแชท บอทจดลงหมวดให้เอง ดูสรุป ตั้งงบ และเตือนค่าสมาชิกให้ทุกวัน</p>
         <div class="cta">
-          <a class="btn js-add" href="#start">เพิ่มเพื่อนบอท</a>
+          <a class="btn" href="https://line.me/R/ti/p/@100hzcuy">เพิ่มเพื่อน LINE</a>
           <a class="btn ghost" href="#how">ดูวิธีใช้</a>
         </div>
         <ul class="ticks"><li>ใช้ฟรี</li><li>ไม่ต้องโหลดแอป</li><li>จดได้ทั้งในแชทและหน้าสรุป</li></ul>
@@ -160,7 +165,14 @@
       <div class="cta-box">
         <h2>เริ่มจดวันนี้</h2>
         <p>เพิ่มเพื่อนบอท แล้วลองพิมพ์รายจ่ายแรกของวัน</p>
-        <a class="btn js-add" href="#start">เพิ่มเพื่อนบอท JodDaily</a>
+        <div class="qr-row">
+          <img class="qr" src="qr-add-friend.png" alt="QR code เพิ่มเพื่อน JodDaily (@100hzcuy)" width="180" height="180">
+          <div class="qr-text">
+            <strong>สแกนด้วย LINE</strong>
+            <span>หรือค้นหา <b>@100hzcuy</b></span>
+            <a class="btn" href="https://line.me/R/ti/p/@100hzcuy">เพิ่มเพื่อน LINE</a>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -174,17 +186,5 @@
   </div>
 </footer>
 
-<script src="config.js"></script>
-<script>
-  // The add-friend buttons open the bot through its LIFF link; the LIFF id comes from the API (it is not a secret).
-  (function () {
-    var api = window.JODDAILY_API;
-    if (!api) return;
-    fetch(api.replace(/\/?$/, '/') + 'api/config').then(function (r) { return r.json(); }).then(function (c) {
-      if (!c || !c.liffId) return;
-      document.querySelectorAll('.js-add').forEach(function (a) { a.href = 'https://liff.line.me/' + encodeURIComponent(c.liffId); });
-    }).catch(function () { /* the buttons stay on the page anchor */ });
-  })();
-</script>
 </body>
 </html>
