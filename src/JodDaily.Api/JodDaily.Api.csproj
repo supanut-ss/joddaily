@@ -6,7 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>JodDaily.Api</AssemblyName>
     <RootNamespace>JodDaily</RootNamespace>
-    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- SqlClient needs the OS culture data, so no invariant mode; Program.cs pins the invariant culture instead -->
+    <InvariantGlobalization>false</InvariantGlobalization>
     <!-- the shared Plesk app pool is 32-bit: out-of-process behind IIS, and a small memory footprint -->
     <AspNetCoreHostingModel>OutOfProcess</AspNetCoreHostingModel>
     <ServerGarbageCollector>false</ServerGarbageCollector>

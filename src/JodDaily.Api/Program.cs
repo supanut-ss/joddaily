@@ -1,8 +1,14 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using JodDaily.Config;
 using JodDaily.Data;
 using JodDaily.Line;
 using JodDaily.Services;
+
+// Dates and numbers are formatted and parsed the same on any host (a Thai host would otherwise use Buddhist years).
+CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
+CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,10 +50,20 @@ app.MapControllers();
 
 app.MapGet("/", () => Results.Json(new { app = "JodDaily API", ok = true }));   // a status check; the LIFF page is a separate site
 
-app.MapGet("/health", async (AppDbContext db) =>
-    await db.Database.CanConnectAsync()
-        ? Results.Json(new { ok = true })
-        : Results.Json(new { ok = false }, statusCode: 503));
+app.MapGet("/health", async (AppDbContext db, ILogger<Program> log) =>
+{
+    try
+    {
+        await db.Database.OpenConnectionAsync();
+        await db.Database.CloseConnectionAsync();
+        return Results.Json(new { ok = true });
+    }
+    catch (Exception ex)
+    {
+        log.LogError(ex, "Health check: the database cannot be reached");
+        return Results.Json(new { ok = false }, statusCode: 503);
+    }
+});
 
 app.Run();
 
