@@ -7,13 +7,13 @@ namespace JodDaily.Services;
 /// <summary>Fixed category lists for the personal ledger; the LIFF page draws the same keys with its own icons.</summary>
 public static class LedgerCategories
 {
-    public static readonly string[] Expense = { "food", "transport", "bills", "shopping", "housing", "health", "fun", "other" };
+    public static readonly string[] Expense = { "food", "drink", "transport", "bills", "shopping", "housing", "health", "fun", "other" };
     public static readonly string[] Income = { "salary", "freelance", "gift", "other_in" };
     public static IEnumerable<string> All => Expense.Concat(Income);
 
     private static readonly Dictionary<string, string> Names = new()
     {
-        ["food"] = "อาหาร", ["transport"] = "เดินทาง", ["bills"] = "บิล", ["shopping"] = "ช้อปปิ้ง", ["housing"] = "ที่พัก",
+        ["food"] = "อาหาร", ["drink"] = "เครื่องดื่ม",["transport"] = "เดินทาง", ["bills"] = "บิล", ["shopping"] = "ช้อปปิ้ง", ["housing"] = "ที่พัก",
         ["health"] = "สุขภาพ", ["fun"] = "บันเทิง", ["other"] = "อื่นๆ",
         ["salary"] = "เงินเดือน", ["freelance"] = "ฟรีแลนซ์", ["gift"] = "ของขวัญ", ["other_in"] = "อื่นๆ"
     };

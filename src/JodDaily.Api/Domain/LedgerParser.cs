@@ -260,7 +260,8 @@ public static class LedgerParser
 
     private static readonly (string Category, string[] Words)[] ExpenseWords =
     {
-        ("food", new[] { "ข้าว", "กาแฟ", "อาหาร", "ก๋วยเตี๋ยว", "ชา", "น้ำ", "ขนม", "กิน", "ส้มตำ", "หมูกระทะ", "บุฟเฟ่ต์", "ร้านอาหาร", "เครื่องดื่ม", "ชานม", "เบเกอรี่", "อาหารเช้า", "มื้อเที่ยง" }),
+        ("food", new[] { "ข้าว", "อาหาร", "ก๋วยเตี๋ยว", "ขนม", "กิน", "ส้มตำ", "หมูกระทะ", "บุฟเฟ่ต์", "ร้านอาหาร", "เบเกอรี่", "อาหารเช้า", "มื้อเที่ยง" }),
+        ("drink", new[] { "กาแฟ", "ชา", "น้ำ", "เครื่องดื่ม", "ชานม", "นม", "โกโก้", "สมูทตี้", "น้ำผลไม้", "น้ำอัดลม", "โค้ก", "ลาเต้", "คาเฟ่", "เบียร์", "เหล้า", "ไวน์" }),
         ("transport", new[] { "แท็กซี่", "วิน", "bts", "mrt", "รถเมล์", "รถไฟ", "น้ำมัน", "ค่าทาง", "ทางด่วน", "grab", "bolt", "เดินทาง", "จอดรถ", "ตั๋วเครื่องบิน", "เครื่องบิน" }),
         ("bills", new[] { "ค่าไฟ", "ค่าน้ำ", "ค่าเน็ต", "ค่าโทร", "อินเทอร์เน็ต", "เน็ต", "บิล", "ค่าบัตร", "ประกัน", "ผ่อน", "ภาษี" }),
         ("shopping", new[] { "เสื้อ", "กางเกง", "รองเท้า", "ช้อป", "ช็อป", "shopee", "lazada", "ของใช้", "เครื่องสำอาง", "กระเป๋า" }),
@@ -269,7 +270,7 @@ public static class LedgerParser
         ("fun", new[] { "หนัง", "เกม", "เที่ยว", "คอนเสิร์ต", "netflix", "spotify", "youtube", "ปาร์ตี้", "ท่องเที่ยว", "โรงแรม" }),
     };
 
-    private static readonly string[] ExpensePriority = { "bills", "transport", "housing", "health", "fun", "shopping", "food" };
+    private static readonly string[] ExpensePriority = { "bills", "transport", "housing", "health", "fun", "shopping", "food", "drink" };
 
     private static readonly (string Category, string[] Words)[] IncomeWords =
     {
@@ -281,7 +282,7 @@ public static class LedgerParser
     public static string GuessCategory(string? note, string kind)
     {
         var n = (note ?? "").ToLowerInvariant();
-        // most specific first: "ค่าน้ำ" (bills) and "น้ำมัน" (transport) must win over the plain word "น้ำ" (food)
+        // most specific first: "ค่าน้ำ" (bills) and "น้ำมัน" (transport) must win over the plain word "น้ำ" (drink)
         var table = kind == "INCOME" ? IncomeWords : ExpenseWords.OrderBy(x => Array.IndexOf(ExpensePriority, x.Category)).ToArray();
         foreach (var (category, words) in table)
             if (words.Any(w => n.Contains(w))) return category;

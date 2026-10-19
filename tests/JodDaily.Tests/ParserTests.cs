@@ -14,7 +14,7 @@ public class ParserTests
     {
         var e = Entry("กาแฟ 65");
         var i = Assert.Single(e.Items);
-        Assert.Equal(new ParsedItem("EXPENSE", 6500, "กาแฟ", "food"), i);
+        Assert.Equal(new ParsedItem("EXPENSE", 6500, "กาแฟ", "drink"), i);
         Assert.Equal(Today, e.Date);
     }
 
@@ -64,7 +64,9 @@ public class ParserTests
     [Theory]
     [InlineData("น้ำมัน 800", "transport")]
     [InlineData("ค่าน้ำ 200", "bills")]
-    [InlineData("น้ำ 10", "food")]
+    [InlineData("น้ำ 10", "drink")]
+    [InlineData("ข้าวมันไก่ 60", "food")]
+    [InlineData("ชานมไข่มุก 55", "drink")]
     [InlineData("ค่าห้อง 8000", "housing")]
     [InlineData("หนัง 300", "fun")]
     [InlineData("ของจิปาถะ 99", "other")]

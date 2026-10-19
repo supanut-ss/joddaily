@@ -52,7 +52,7 @@ public class ChatEntryTests : ChatTestBase
         var reply = await Chat.HandleTextAsync(Me, "กาแฟ 65");
 
         var e = await Db.LedgerEntries.SingleAsync();
-        Assert.Equal(("EXPENSE", "food", 6500L, "CHAT"), (e.Kind, e.Category, e.AmountSatang, e.Source));
+        Assert.Equal(("EXPENSE", "drink", 6500L, "CHAT"), (e.Kind, e.Category, e.AmountSatang, e.Source));
         var json = Json(reply);
         Assert.Contains("−฿65", json);
         Assert.Contains($"undo:{e.Id}", json);
@@ -104,7 +104,7 @@ public class ChatEntryTests : ChatTestBase
         await Chat.HandlePostbackAsync(other, $"undo:{id}");
         await Chat.HandlePostbackAsync(other, $"setcat:{id}:bills");
         var e = await Db.LedgerEntries.SingleAsync();
-        Assert.Equal("food", e.Category);
+        Assert.Equal("drink", e.Category);
     }
 
     [Fact]
@@ -118,7 +118,7 @@ public class ChatEntryTests : ChatTestBase
         Assert.DoesNotContain("salary", choices);
 
         await Chat.HandlePostbackAsync(Me, $"setcat:{id}:salary");   // income category on an expense
-        Assert.Equal("food", (await Db.LedgerEntries.SingleAsync()).Category);
+        Assert.Equal("drink", (await Db.LedgerEntries.SingleAsync()).Category);
         await Chat.HandlePostbackAsync(Me, $"setcat:{id}:transport");
         Assert.Equal("transport", (await Db.LedgerEntries.SingleAsync()).Category);
     }
