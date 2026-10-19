@@ -3,10 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#F5FAF0" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0B1A10" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#07140B">
+<meta name="color-scheme" content="dark">
 <title>JodDaily — จดรายรับรายจ่ายในแชท LINE</title>
 <meta name="description" content="พิมพ์ในแชทบรรทัดเดียว JodDaily จดรายรับรายจ่าย ตั้งงบ เตือนค่าสมาชิก และส่งออก CSV ให้ในบอท LINE">
+<meta property="og:title" content="JodDaily — จดรายรับรายจ่ายในแชท LINE">
+<meta property="og:description" content="พิมพ์ กาแฟ 65 แล้วบอทจดให้ ตั้งงบ เตือนค่าสมาชิก สรุปรายเดือน">
+<meta property="og:image" content="https://joddaily.drivetodev.online/logo.png">
 <link rel="icon" type="image/png" href="favicon-48.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,92 +19,185 @@
   if (/Line\//i.test(navigator.userAgent) || /[?&](liff\.state|liffClientId|liffRedirectUri|code|tab|demo)=/.test(location.search)) {
     location.replace('app/' + location.search + location.hash);
   }
+  document.documentElement.className = 'js';
 </script>
 <style>
   :root {
-    --bg:#F5FAF0; --card:#FFFFFF; --card-2:#E9F5E0; --text:#0F2417; --muted:#546A5A; --line:#D8E8CC;
-    --primary:#15803D; --primary-soft:#D9F3C9; --on-primary:#FFFFFF; --bright:#22C55E; --lime:#84CC16; --gold:#F5B301;
-    --hero-1:#E4F6D6; --hero-2:#F5FAF0;
+    --bg:#07140B; --bg-2:#0D2214; --card:#112A1A; --card-2:#163521; --text:#EAF7EC; --muted:#A3BEAA; --line:#1F4430;
+    --green:#22C55E; --lime:#A3E635; --gold:#FBBF24; --deep:#052E16;
     --f-display:"IBM Plex Sans Thai","Noto Sans Thai",system-ui,sans-serif;
     --f-body:"Noto Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg:#0B1A10; --card:#12251A; --card-2:#183122; --text:#E8F5EA; --muted:#9DB8A5; --line:#234130;
-      --primary:#4ADE80; --primary-soft:#14391F; --on-primary:#052E16; --bright:#4ADE80; --lime:#A3E635; --gold:#FBBF24;
-      --hero-1:#12301C; --hero-2:#0B1A10;
-    }
-  }
   * { box-sizing:border-box; }
   html { scroll-behavior:smooth; }
-  body { margin:0; background:var(--bg); color:var(--text); font:400 16px/1.65 var(--f-body); -webkit-text-size-adjust:100%; }
+  body { margin:0; background:var(--bg); color:var(--text); font:400 16px/1.65 var(--f-body); -webkit-text-size-adjust:100%; overflow-x:hidden; }
   a { color:inherit; }
-  .wrap { max-width:1040px; margin:0 auto; padding:0 16px; }
-  header.top { position:sticky; top:0; z-index:5; background:color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter:blur(8px); border-bottom:1px solid var(--line); }
-  header.top .wrap { display:flex; align-items:center; justify-content:space-between; height:56px; }
-  .brand { display:flex; align-items:center; gap:10px; font:700 18px var(--f-display); text-decoration:none; }
-  .brand img { width:32px; height:32px; border-radius:9px; }
-  .btn { display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:0 22px; border-radius:999px; background:var(--primary); color:var(--on-primary);
-         font:600 16px var(--f-display); text-decoration:none; border:2px solid var(--primary); }
-  .btn.ghost { background:transparent; color:var(--primary); }
-  .btn:focus-visible, a:focus-visible { outline:3px solid var(--gold); outline-offset:2px; }
-  .hero { background:linear-gradient(180deg, var(--hero-1), var(--hero-2)); padding:40px 0 56px; }
-  .hero .wrap { display:grid; gap:32px; align-items:center; }
-  .pill { display:inline-block; padding:4px 14px; border-radius:999px; background:var(--primary-soft); color:var(--primary); font:600 13px var(--f-display); }
-  h1 { font:700 clamp(34px, 8vw, 54px)/1.2 var(--f-display); margin:14px 0 12px; }
-  h1 em { font-style:normal; color:var(--primary); }
-  .lead { font-size:18px; color:var(--muted); max-width:34em; margin:0 0 22px; }
+  img { max-width:100%; }
+  .wrap { max-width:1080px; margin:0 auto; padding:0 16px; }
+
+  /* header */
+  header.top { position:sticky; top:0; z-index:10; background:rgba(7,20,11,.82); backdrop-filter:blur(10px); border-bottom:1px solid var(--line); }
+  header.top .wrap { display:flex; align-items:center; justify-content:space-between; height:58px; }
+  .brand { display:flex; align-items:center; gap:10px; font:700 19px var(--f-display); text-decoration:none; }
+  .brand img { width:34px; height:34px; border-radius:10px; }
+  nav.links { display:none; gap:24px; font-size:15px; color:var(--muted); }
+  nav.links a { text-decoration:none; }
+  nav.links a:hover { color:var(--text); }
+
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:46px; padding:0 24px; border-radius:999px; background:linear-gradient(135deg, var(--lime), var(--green));
+         color:var(--deep); font:700 16px var(--f-display); text-decoration:none; border:0; box-shadow:0 8px 24px rgba(34,197,94,.28); transition:transform .15s, box-shadow .15s; }
+  .btn:hover { transform:translateY(-2px); box-shadow:0 12px 28px rgba(34,197,94,.38); }
+  .btn.ghost { background:transparent; color:var(--text); border:1.5px solid var(--line); box-shadow:none; }
+  .btn.ghost:hover { border-color:var(--green); }
+  .btn.sm { min-height:38px; padding:0 18px; font-size:15px; }
+  .btn:focus-visible, a:focus-visible, summary:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
+
+  /* hero */
+  .hero { position:relative; overflow:hidden; padding:44px 0 64px; background:
+      radial-gradient(60% 50% at 85% 20%, rgba(163,230,53,.20), transparent 70%),
+      radial-gradient(50% 50% at 10% 90%, rgba(34,197,94,.18), transparent 70%),
+      radial-gradient(30% 30% at 70% 80%, rgba(251,191,36,.10), transparent 70%); }
+  .hero .wrap { display:grid; gap:40px; align-items:center; }
+  .pill { display:inline-flex; align-items:center; gap:8px; padding:5px 14px; border-radius:999px; background:rgba(163,230,53,.12); border:1px solid rgba(163,230,53,.3); color:var(--lime); font:600 13px var(--f-display); }
+  .pill::before { content:""; width:8px; height:8px; border-radius:50%; background:var(--lime); box-shadow:0 0 10px var(--lime); }
+  .nb { white-space:nowrap; }
+  h1 { font:700 clamp(30px, 8vw, 46px)/1.2 var(--f-display); margin:16px 0 14px; letter-spacing:-.01em; }
+  h1 em { font-style:normal; background:linear-gradient(90deg, var(--lime), var(--gold)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .lead { font-size:18px; color:var(--muted); max-width:30em; margin:0 0 26px; }
+  .lead code { color:var(--lime); }
   .cta { display:flex; flex-wrap:wrap; gap:12px; }
-  .ticks { display:flex; flex-wrap:wrap; gap:8px 18px; list-style:none; padding:0; margin:22px 0 0; color:var(--muted); font-size:14px; }
-  .ticks li::before { content:"✓ "; color:var(--primary); font-weight:700; }
-  .phone { width:min(300px, 100%); margin:0 auto; background:var(--card); border:1px solid var(--line); border-radius:32px; padding:14px; box-shadow:0 24px 50px rgba(21,128,61,.18); }
-  .phone .bar { display:flex; align-items:center; gap:8px; font:600 14px var(--f-display); padding:4px 4px 12px; border-bottom:1px solid var(--line); }
-  .phone .bar img { width:24px; height:24px; border-radius:7px; }
-  .chat { display:grid; gap:10px; padding-top:14px; }
-  .bubble { max-width:82%; padding:8px 14px; border-radius:18px; font-size:15px; line-height:1.45; }
-  .me { justify-self:end; background:var(--bright); color:#052E16; border-bottom-right-radius:6px; font-weight:600; }
+  .ticks { display:flex; flex-wrap:wrap; gap:8px 20px; list-style:none; padding:0; margin:24px 0 0; color:var(--muted); font-size:14px; }
+  .ticks li::before { content:"✓ "; color:var(--green); font-weight:700; }
+  code { font-family:ui-monospace, Consolas, monospace; background:rgba(163,230,53,.12); color:var(--lime); padding:1px 8px; border-radius:8px; font-size:.92em; }
+
+  /* phone frames */
+  .stage { position:relative; display:grid; place-items:center; min-height:430px; }
+  .frame { position:relative; width:min(250px, 62vw); aspect-ratio:390/844; border-radius:36px; padding:9px; background:linear-gradient(160deg,#2a4a35,#0b1c11); box-shadow:0 30px 60px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.07) inset; }
+  .frame img { display:block; width:100%; height:100%; object-fit:cover; object-position:top; border-radius:28px; background:#F5FAF0; }
+  .frame::before { content:""; position:absolute; top:14px; left:50%; width:62px; height:6px; margin-left:-31px; border-radius:4px; background:rgba(0,0,0,.55); z-index:2; }
+  .hero .frame { width:min(270px, 66vw); transform:rotate(3deg); }
+  .float { position:absolute; background:var(--card-2); border:1px solid var(--line); border-radius:18px; padding:10px 14px; font-size:14px; line-height:1.4; box-shadow:0 14px 34px rgba(0,0,0,.45); animation:float 6s ease-in-out infinite; }
+  .float b { display:block; font:700 15px var(--f-display); }
+  .float .amt { color:var(--lime); font:700 20px var(--f-display); }
+  .float.a { left:-4px; top:34px; }
+  .float.b { right:-4px; bottom:56px; animation-delay:-3s; }
+  .float.me { background:linear-gradient(135deg, var(--lime), var(--green)); color:var(--deep); font-weight:700; border:0; }
+  @keyframes float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-10px); } }
+
+  /* strip */
+  .strip { border-block:1px solid var(--line); background:var(--bg-2); }
+  .strip .wrap { display:grid; grid-template-columns:repeat(2, 1fr); gap:18px; padding-block:26px; text-align:center; }
+  .strip b { display:block; font:700 30px var(--f-display); color:var(--lime); }
+  .strip span { color:var(--muted); font-size:14px; }
+
+  section { padding:72px 0; }
+  .eyebrow { text-align:center; color:var(--lime); font:600 14px var(--f-display); letter-spacing:.08em; margin-bottom:8px; }
+  h2 { font:700 clamp(26px, 5.5vw, 40px)/1.3 var(--f-display); margin:0 0 10px; text-align:center; text-wrap:balance; }
+  .sub-h { text-align:center; color:var(--muted); margin:0 auto 40px; max-width:34em; }
+
+  /* steps */
+  .steps { display:grid; gap:16px; }
+  .step { position:relative; background:linear-gradient(180deg, var(--card), var(--bg-2)); border:1px solid var(--line); border-radius:24px; padding:26px 24px 24px; overflow:hidden; }
+  .step .n { position:absolute; right:18px; top:6px; font:700 84px/1 var(--f-display); color:rgba(163,230,53,.09); }
+  .step h3, .feat h3 { font:600 19px var(--f-display); margin:0 0 6px; }
+  .step p, .feat p { margin:0; color:var(--muted); font-size:15px; }
+
+  /* screens */
+  .screens { background:linear-gradient(180deg, var(--bg), var(--bg-2) 30%, var(--bg-2) 70%, var(--bg)); }
+  .rail { display:flex; gap:22px; overflow-x:auto; scroll-snap-type:x mandatory; padding:10px 16px 28px; margin:0 -16px; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
+  .shot { flex:0 0 auto; scroll-snap-align:center; text-align:center; width:min(250px, 70vw); }
+  .shot .frame { width:100%; }
+  .shot figcaption { margin-top:16px; }
+  .shot h3 { font:600 18px var(--f-display); margin:0; }
+  .shot p { margin:2px 0 0; color:var(--muted); font-size:14px; }
+  @media (min-width:1000px) { .rail { justify-content:center; overflow:visible; } .shot:nth-child(odd) { margin-top:34px; } }
+
+  /* chat */
+  .duo { display:grid; gap:36px; align-items:center; }
+  .chat { display:grid; gap:12px; max-width:380px; width:100%; margin:0 auto; background:var(--card); border:1px solid var(--line); border-radius:28px; padding:20px; box-shadow:0 24px 50px rgba(0,0,0,.4); }
+  .bubble { max-width:84%; padding:9px 15px; border-radius:18px; font-size:15px; line-height:1.45; }
+  .me { justify-self:end; background:linear-gradient(135deg, var(--lime), var(--green)); color:var(--deep); border-bottom-right-radius:6px; font-weight:700; }
   .bot { justify-self:start; width:92%; background:var(--card-2); border-bottom-left-radius:6px; }
   .bot b { display:block; font:700 15px var(--f-display); }
-  .bot .amt { font:700 22px var(--f-display); color:var(--primary); }
-  .bot .chip { display:inline-block; margin-top:4px; padding:2px 12px; border:1px solid var(--line); border-radius:999px; font-size:13px; background:var(--card); }
-  section { padding:56px 0; }
-  h2 { font:700 clamp(26px, 5vw, 36px)/1.25 var(--f-display); margin:0 0 8px; text-align:center; }
-  .sub-h { text-align:center; color:var(--muted); margin:0 auto 32px; max-width:34em; }
-  .steps { display:grid; gap:16px; counter-reset:s; }
-  .step { background:var(--card); border:1px solid var(--line); border-radius:20px; padding:22px; }
-  .step::before { counter-increment:s; content:counter(s); display:grid; place-items:center; width:36px; height:36px; border-radius:50%; background:var(--primary); color:var(--on-primary); font:700 17px var(--f-display); margin-bottom:10px; }
-  .step h3, .feat h3 { font:600 18px var(--f-display); margin:0 0 4px; }
-  .step p, .feat p { margin:0; color:var(--muted); font-size:15px; }
-  code { font-family:ui-monospace, Consolas, monospace; background:var(--primary-soft); color:var(--primary); padding:1px 8px; border-radius:8px; font-size:.92em; }
-  .alt { background:var(--card-2); }
+  .bot .amt { font:700 22px var(--f-display); color:var(--lime); }
+  .chip { display:inline-block; margin-top:6px; padding:2px 12px; border:1px solid var(--line); border-radius:999px; font-size:13px; }
+  .duo h2, .duo .sub-h, .duo .eyebrow { text-align:left; margin-left:0; }
+  .list { list-style:none; padding:0; margin:18px 0 0; display:grid; gap:10px; }
+  .list li { display:flex; gap:12px; align-items:flex-start; color:var(--muted); }
+  .list li::before { content:"✓"; flex:0 0 24px; height:24px; display:grid; place-items:center; border-radius:50%; background:rgba(34,197,94,.18); color:var(--green); font-weight:700; font-size:14px; margin-top:2px; }
+  .list b { color:var(--text); font-weight:600; }
+
+  /* features */
   .grid { display:grid; gap:14px; grid-template-columns:1fr; }
-  .feat { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:18px 20px; }
-  .feat .ic { font-size:26px; line-height:1; margin-bottom:8px; }
-  .cta-box { text-align:center; background:linear-gradient(135deg, var(--primary), #166534); color:#fff; border-radius:28px; padding:40px 20px; }
-  .cta-box h2 { color:#fff; }
-  .cta-box p { margin:0 auto 22px; max-width:30em; opacity:.92; }
-  .cta-box .btn { background:#fff; color:#14532D; border-color:#fff; }
-  .qr-row { display:flex; flex-wrap:wrap; gap:22px; align-items:center; justify-content:center; }
-  .qr { width:180px; height:180px; background:#fff; border-radius:20px; padding:10px; }
+  .feat { background:var(--card); border:1px solid var(--line); border-radius:22px; padding:22px; transition:transform .2s, border-color .2s; }
+  .feat:hover { transform:translateY(-4px); border-color:rgba(163,230,53,.45); }
+  .ic { width:48px; height:48px; border-radius:15px; display:grid; place-items:center; margin-bottom:14px; background:linear-gradient(135deg, rgba(163,230,53,.22), rgba(34,197,94,.12)); color:var(--lime); }
+  .ic svg { width:24px; height:24px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .feat:nth-child(3n+2) .ic { background:linear-gradient(135deg, rgba(251,191,36,.22), rgba(251,191,36,.08)); color:var(--gold); }
+  .feat:nth-child(3n) .ic { background:linear-gradient(135deg, rgba(56,189,248,.22), rgba(56,189,248,.08)); color:#38BDF8; }
+
+  /* faq */
+  .faq { max-width:720px; margin:0 auto; display:grid; gap:12px; }
+  details { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:4px 20px; }
+  summary { cursor:pointer; list-style:none; padding:14px 0; font:600 17px var(--f-display); display:flex; justify-content:space-between; gap:12px; }
+  summary::-webkit-details-marker { display:none; }
+  summary::after { content:"+"; color:var(--lime); font-size:22px; line-height:1; }
+  details[open] summary::after { content:"−"; }
+  details p { margin:0 0 16px; color:var(--muted); }
+
+  /* cta */
+  .cta-box { text-align:center; background:radial-gradient(80% 120% at 50% 0%, #1B6B38, #0B3A1C 70%); border:1px solid #1F5A36; border-radius:32px; padding:48px 20px; position:relative; overflow:hidden; }
+  .cta-box h2 { margin-bottom:8px; }
+  .cta-box > p { margin:0 auto 26px; max-width:30em; color:#CDE8D3; }
+  .qr-row { display:flex; flex-wrap:wrap; gap:26px; align-items:center; justify-content:center; }
+  .qr { width:184px; height:184px; background:#fff; border-radius:22px; padding:10px; box-shadow:0 14px 34px rgba(0,0,0,.4); }
   .qr-text { display:grid; gap:10px; justify-items:center; text-align:center; }
-  .qr-text strong { font:700 20px var(--f-display); }
+  .qr-text strong { font:700 22px var(--f-display); }
+  .qr-text span { color:#CDE8D3; }
   @media (max-width:699px) { .qr-row .qr { display:none; } }   /* on a phone the button opens LINE directly; the QR is for scanning from another screen */
-  footer { padding:28px 0 48px; color:var(--muted); font-size:14px; text-align:center; }
+  footer { padding:32px 0 56px; color:var(--muted); font-size:14px; text-align:center; border-top:1px solid var(--line); }
   footer p { margin:4px auto; max-width:40em; }
+
+  /* reveal on scroll (only when JS runs; without it everything is visible) */
+  .js .rv { opacity:0; transform:translateY(26px); transition:opacity .7s ease, transform .7s ease; }
+  .js .rv.in { opacity:1; transform:none; }
+
   @media (min-width:700px) {
-    .hero .wrap { grid-template-columns:1.15fr .85fr; }
+    nav.links { display:flex; }
+    .hero { padding:72px 0 88px; }
+    .hero .wrap { grid-template-columns:1.1fr .9fr; }
+    h1 { font-size:clamp(38px, 4.6vw, 54px); }
+    .strip .wrap { grid-template-columns:repeat(4, 1fr); }
     .steps { grid-template-columns:repeat(3, 1fr); }
     .grid { grid-template-columns:repeat(2, 1fr); }
+    .duo { grid-template-columns:1fr 1fr; gap:56px; }
   }
-  @media (min-width:960px) { .grid { grid-template-columns:repeat(3, 1fr); } }
-  @media (prefers-reduced-motion: reduce) { html { scroll-behavior:auto; } }
+  @media (min-width:960px) { .grid { grid-template-columns:repeat(3, 1fr); } .hero .frame { width:290px; } }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior:auto; }
+    .float { animation:none; }
+    .js .rv { opacity:1; transform:none; transition:none; }
+  }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+  <symbol id="i-bank" viewBox="0 0 24 24"><path d="M3 22h18M6 18v-7M10 18v-7M14 18v-7M18 18v-7M12 2 3 7v2h18V7z"/></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+  <symbol id="i-pie" viewBox="0 0 24 24"><path d="M21.2 15.9A10 10 0 1 1 8 2.8M22 12A10 10 0 0 0 12 2v10z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7zM14 2v4a2 2 0 0 0 2 2h4M12 18v-6M9 15l3 3 3-3"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M5 3 2 6M22 6l-3-3"/></symbol>
+</svg>
+
 <header class="top">
   <div class="wrap">
-    <a class="brand" href="./"><img src="logo.png" alt="" width="32" height="32">JodDaily</a>
-    <a class="btn" href="#start" style="min-height:38px;padding:0 18px;font-size:15px">เริ่มใช้งาน</a>
+    <a class="brand" href="./"><img src="logo.png" alt="" width="34" height="34">JodDaily</a>
+    <nav class="links" aria-label="เมนู"><a href="#how">วิธีใช้</a><a href="#screens">หน้าจอ</a><a href="#features">ฟีเจอร์</a><a href="#faq">คำถาม</a></nav>
+    <a class="btn sm" href="#start">เริ่มใช้งาน</a>
   </div>
 </header>
 
@@ -110,63 +206,122 @@
     <div class="wrap">
       <div>
         <span class="pill">บอทจดบัญชีใน LINE</span>
-        <h1>จดรายรับรายจ่าย<br><em>แค่พิมพ์บรรทัดเดียว</em></h1>
-        <p class="lead">พิมพ์ <code>กาแฟ 65</code> ในแชท บอทจดลงหมวดให้เอง ดูสรุป ตั้งงบ และเตือนค่าสมาชิกให้ทุกวัน</p>
+        <h1><span class="nb">จดรายรับรายจ่าย</span><br><em class="nb">แค่พิมพ์บรรทัดเดียว</em></h1>
+        <p class="lead">พิมพ์ <code>กาแฟ 65</code> ในแชท บอทจดลงหมวดให้เอง ดูสรุป ตั้งงบ และเตือนค่าสมาชิกให้ก่อนโดนตัดเงิน</p>
         <div class="cta">
           <a class="btn" href="https://line.me/R/ti/p/@100hzcuy">เพิ่มเพื่อน LINE</a>
           <a class="btn ghost" href="#how">ดูวิธีใช้</a>
         </div>
-        <ul class="ticks"><li>ใช้ฟรี</li><li>ไม่ต้องโหลดแอป</li><li>จดได้ทั้งในแชทและหน้าสรุป</li></ul>
+        <ul class="ticks"><li>ใช้ฟรี</li><li>ไม่ต้องโหลดแอป</li><li>ไม่ต้องสมัครสมาชิก</li></ul>
       </div>
-      <div class="phone" aria-label="ตัวอย่างการสนทนากับบอท">
-        <div class="bar"><img src="logo.png" alt="" width="24" height="24">JodDaily</div>
-        <div class="chat">
-          <div class="bubble me">กาแฟ 65</div>
-          <div class="bubble bot"><b>บันทึกแล้ว · เครื่องดื่ม</b><span class="amt">−฿65</span><br><span class="chip">↩ ยกเลิก</span> <span class="chip">เปลี่ยนหมวด</span></div>
-          <div class="bubble me">ข้าวมันไก่ 60 น้ำ 15</div>
-          <div class="bubble bot"><b>บันทึก 2 รายการ</b>อาหาร −฿60 · เครื่องดื่ม −฿15</div>
-        </div>
+      <div class="stage">
+        <div class="frame"><img src="shots/home.jpg" alt="หน้าแรกของ JodDaily: ยอดคงเหลือ งบประมาณ และค่าสมาชิก" width="390" height="844"></div>
+        <div class="float a"><span class="bubble me" style="display:block;max-width:none;padding:6px 14px">กาแฟ 65</span></div>
+        <div class="float b"><b>บันทึกแล้ว · เครื่องดื่ม</b><span class="amt">−฿65</span></div>
       </div>
+    </div>
+  </div>
+
+  <div class="strip">
+    <div class="wrap">
+      <div><b>1 บรรทัด</b><span>ก็จดได้</span></div>
+      <div><b>9 หมวด</b><span>เดาให้อัตโนมัติ</span></div>
+      <div><b>6 เมนู</b><span>กดเดียวถึงทุกหน้า</span></div>
+      <div><b>ทุกวัน</b><span>เตือนตามเวลาที่ตั้ง</span></div>
     </div>
   </div>
 
   <section id="how">
     <div class="wrap">
-      <h2>3 ขั้นตอน เริ่มได้ใน 1 นาที</h2>
-      <p class="sub-h">ไม่ต้องสมัคร ใช้บัญชี LINE ของคุณได้เลย</p>
+      <div class="eyebrow rv">วิธีใช้</div>
+      <h2 class="rv">3 ขั้นตอน เริ่มได้ใน 1 นาที</h2>
+      <p class="sub-h rv">ไม่ต้องสมัคร ใช้บัญชี LINE ของคุณได้เลย</p>
       <div class="steps">
-        <div class="step"><h3>เพิ่มเพื่อนบอท</h3><p>กดปุ่มเพิ่มเพื่อน แล้วเปิดห้องแชท 1:1 กับ JodDaily</p></div>
-        <div class="step"><h3>พิมพ์สิ่งที่จ่าย</h3><p>เช่น <code>กาแฟ 65</code> หรือ <code>เงินเดือน +30000</code> เพิ่มวันที่ได้ เช่น <code>เมื่อวาน</code></p></div>
-        <div class="step"><h3>ดูสรุปและตั้งงบ</h3><p>กดเมนูด้านล่างเพื่อดูสรุปเดือนนี้ ประวัติ และตั้งงบรายหมวด</p></div>
+        <div class="step rv"><span class="n">1</span><h3>เพิ่มเพื่อนบอท</h3><p>กดปุ่มเพิ่มเพื่อน หรือสแกน QR แล้วเปิดห้องแชท 1:1 กับ JodDaily</p></div>
+        <div class="step rv"><span class="n">2</span><h3>พิมพ์สิ่งที่จ่าย</h3><p>เช่น <code>กาแฟ 65</code> หรือ <code>เงินเดือน +30000</code> ใส่วันที่ได้ เช่น <code>เมื่อวาน</code></p></div>
+        <div class="step rv"><span class="n">3</span><h3>ดูสรุปและตั้งงบ</h3><p>กดเมนูด้านล่างเพื่อดูสรุปเดือนนี้ ประวัติ ค่าสมาชิก และตั้งงบรายหมวด</p></div>
       </div>
     </div>
   </section>
 
-  <section class="alt">
+  <section id="screens" class="screens">
     <div class="wrap">
-      <h2>ครบ จบในแชท</h2>
-      <p class="sub-h">ทุกอย่างที่จำเป็นสำหรับบัญชีส่วนตัว ไม่มีอะไรเกินจำเป็น</p>
+      <div class="eyebrow rv">หน้าจอจริง</div>
+      <h2 class="rv">ดูภาพรวมการเงินในหน้าเดียว</h2>
+      <p class="sub-h rv">เปิดจากเมนูในแชท ไม่ต้องติดตั้งแอปเพิ่ม</p>
+      <div class="rail rv">
+        <figure class="shot"><div class="frame"><img loading="lazy" src="shots/home.jpg" alt="หน้าแรก" width="390" height="844"></div><figcaption><h3>หน้าแรก</h3><p>ยอดคงเหลือ งบ และรายการล่าสุด</p></figcaption></figure>
+        <figure class="shot"><div class="frame"><img loading="lazy" src="shots/history.jpg" alt="ประวัติ" width="390" height="844"></div><figcaption><h3>ประวัติ</h3><p>ค้นหา กรอง แก้ไข และส่งออก CSV</p></figcaption></figure>
+        <figure class="shot"><div class="frame"><img loading="lazy" src="shots/report.jpg" alt="รายงาน" width="390" height="844"></div><figcaption><h3>รายงาน</h3><p>สัดส่วนตามหมวดและรายจ่ายรายวัน</p></figcaption></figure>
+        <figure class="shot"><div class="frame"><img loading="lazy" src="shots/subs.jpg" alt="ค่าสมาชิก" width="390" height="844"></div><figcaption><h3>ค่าสมาชิก</h3><p>Netflix, Spotify พร้อมเตือนก่อนตัดเงิน</p></figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap duo">
+      <div class="rv">
+        <div class="eyebrow" style="text-align:left">จดในแชท</div>
+        <h2>พิมพ์แบบที่พูด บอทเข้าใจ</h2>
+        <p class="sub-h" style="margin-bottom:0">ไม่ต้องกรอกฟอร์ม ไม่ต้องเลือกหมวดเอง</p>
+        <ul class="list">
+          <li><span><b>หลายรายการในประโยคเดียว</b> เช่น ข้าวมันไก่ 60 น้ำ 15</span></li>
+          <li><span><b>ใส่วันที่ได้</b> เมื่อวาน หรือวันที่ที่ต้องการ</span></li>
+          <li><span><b>ยกเลิกทันที</b> กดปุ่มในการ์ดถ้าพิมพ์ผิด</span></li>
+          <li><span><b>เลือกบัญชีด้วย @</b> เช่น กาแฟ 65 @เงินสด</span></li>
+        </ul>
+      </div>
+      <div class="chat rv" aria-label="ตัวอย่างการสนทนากับบอท">
+        <div class="bubble me">กาแฟ 65</div>
+        <div class="bubble bot"><b>บันทึกแล้ว · เครื่องดื่ม</b><span class="amt">−฿65</span><br><span class="chip">↩ ยกเลิก</span> <span class="chip">เปลี่ยนหมวด</span></div>
+        <div class="bubble me">ข้าวมันไก่ 60 น้ำ 15</div>
+        <div class="bubble bot"><b>บันทึก 2 รายการ</b>อาหาร −฿60 · เครื่องดื่ม −฿15</div>
+        <div class="bubble me">สรุป</div>
+        <div class="bubble bot"><b>เดือนนี้ใช้ไป ฿16,495</b>เหลืออีก ฿16,005 · งบอาหารถึง 80% แล้ว</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features" style="padding-top:24px">
+    <div class="wrap">
+      <div class="eyebrow rv">ฟีเจอร์</div>
+      <h2 class="rv">ครบ จบในแชท</h2>
+      <p class="sub-h rv">ทุกอย่างที่จำเป็นสำหรับบัญชีส่วนตัว ไม่มีอะไรเกินจำเป็น</p>
       <div class="grid">
-        <div class="feat"><div class="ic">💬</div><h3>จดด้วยการพิมพ์</h3><p>หลายรายการในประโยคเดียว เดาหมวดให้ และกดยกเลิกหรือเปลี่ยนหมวดได้ทันที</p></div>
-        <div class="feat"><div class="ic">🏦</div><h3>หลายบัญชี + โอนย้าย</h3><p>เงินสด ธนาคาร บัตร e-wallet พร้อมยอดคงเหลือและการโอนระหว่างบัญชี</p></div>
-        <div class="feat"><div class="ic">🔁</div><h3>รายการประจำ</h3><p>ค่าเช่า เงินเดือน รายสัปดาห์ รายเดือน รายปี บันทึกให้เองตามวัน</p></div>
-        <div class="feat"><div class="ic">🔔</div><h3>เตือนค่าสมาชิก</h3><p>Netflix, Spotify ก่อนตัดเงิน 1 วัน และเตือนก่อนจบช่วงทดลองฟรี</p></div>
-        <div class="feat"><div class="ic">🎯</div><h3>งบรายหมวด</h3><p>แจ้งเมื่อใช้ถึง 80% และเมื่อเกินงบ เดือนละครั้งต่อระดับ ไม่รบกวนซ้ำ</p></div>
-        <div class="feat"><div class="ic">📊</div><h3>สรุปและรายงาน</h3><p>แยกตามหมวด รายวัน ค่าเฉลี่ยต่อวัน ดูย้อนหลังได้ทุกเดือน</p></div>
-        <div class="feat"><div class="ic">🔍</div><h3>ค้นหา</h3><p>หาจากโน้ต ชื่อหมวด หรือจำนวนเงิน ทั้งในแอปและในแชท</p></div>
-        <div class="feat"><div class="ic">📁</div><h3>ส่งออก CSV</h3><p>ลิงก์ดาวน์โหลดเฉพาะคุณ หมดอายุใน 10 นาที เปิดด้วย Excel ภาษาไทยได้</p></div>
-        <div class="feat"><div class="ic">⏰</div><h3>เตือนตามเวลาที่ชอบ</h3><p>เลือกชั่วโมงที่ให้เตือน เปิดปิดแต่ละประเภท และเตือนเมื่อวันนี้ยังไม่ได้จด</p></div>
+        <div class="feat rv"><div class="ic"><svg><use href="#i-chat"/></svg></div><h3>จดด้วยการพิมพ์</h3><p>หลายรายการในประโยคเดียว เดาหมวดให้ และกดยกเลิกหรือเปลี่ยนหมวดได้ทันที</p></div>
+        <div class="feat rv"><div class="ic"><svg><use href="#i-bank"/></svg></div><h3>หลายบัญชี + โอนย้าย</h3><p>เงินสด ธนาคาร บัตร e-wallet พร้อมยอดคงเหลือและการโอนระหว่างบัญชี</p></div>
+        <div class="feat rv"><div class="ic"><svg><use href="#i-repeat"/></svg></div><h3>รายการประจำ</h3><p>ค่าเช่า เงินเดือน รายสัปดาห์ รายเดือน รายปี บันทึกให้เองตามวัน</p></div>
+        <div class="feat rv"><div class="ic"><svg><use href="#i-bell"/></svg></div><h3>เตือนค่าสมาชิก</h3><p>Netflix, Spotify ก่อนตัดเงิน 1 วัน และเตือนก่อนจบช่วงทดลองฟรี</p></div>
+        <div class="feat rv"><div class="ic"><svg><use href="#i-target"/></svg></div><h3>งบรายหมวด</h3><p>แจ้งเมื่อใช้ถึง 80% และเมื่อเกินงบ เดือนละครั้งต่อระดับ ไม่รบกวนซ้ำ</p></div>
+        <div class="feat rv"><div class="ic"><svg><use href="#i-pie"/></svg></div><h3>สรุปและรายงาน</h3><p>แยกตามหมวด รายวัน ค่าเฉลี่ยต่อวัน ดูย้อนหลังได้ทุกเดือน</p></div>
+        <div class="feat rv"><div class="ic"><svg><use href="#i-search"/></svg></div><h3>ค้นหา</h3><p>หาจากโน้ต ชื่อหมวด หรือจำนวนเงิน ทั้งในแอปและในแชท</p></div>
+        <div class="feat rv"><div class="ic"><svg><use href="#i-file"/></svg></div><h3>ส่งออก CSV</h3><p>ลิงก์ดาวน์โหลดเฉพาะคุณ หมดอายุใน 10 นาที เปิดด้วย Excel ภาษาไทยได้</p></div>
+        <div class="feat rv"><div class="ic"><svg><use href="#i-clock"/></svg></div><h3>เตือนตามเวลาที่ชอบ</h3><p>เลือกชั่วโมงที่ให้เตือน เปิดปิดแต่ละประเภท และเตือนเมื่อวันนี้ยังไม่ได้จด</p></div>
       </div>
     </div>
   </section>
 
-  <section id="start">
+  <section id="faq" style="padding-top:24px">
     <div class="wrap">
-      <div class="cta-box">
+      <div class="eyebrow rv">คำถามที่พบบ่อย</div>
+      <h2 class="rv" style="margin-bottom:32px">มีอะไรอยากรู้ไหม</h2>
+      <div class="faq rv">
+        <details><summary>ใช้ฟรีไหม</summary><p>ใช้ฟรี ไม่ต้องสมัครสมาชิก แค่เพิ่มเพื่อนบอทใน LINE ก็เริ่มจดได้เลย</p></details>
+        <details><summary>ข้อมูลของฉันปลอดภัยไหม</summary><p>เก็บเท่าที่จำเป็น คือชื่อโปรไฟล์ LINE และรายการที่คุณจดเอง ไม่ส่งต่อให้ผู้อื่น แต่ละคนเห็นได้เฉพาะข้อมูลของตัวเอง</p></details>
+        <details><summary>ใช้ในกลุ่มได้ไหม</summary><p>บอทใช้ได้ในแชท 1:1 เท่านั้น เพื่อให้บัญชีของคุณเป็นส่วนตัว จึงไม่ทำงานในกลุ่ม</p></details>
+        <details><summary>ถ้าพิมพ์ผิดทำยังไง</summary><p>กดปุ่ม "ยกเลิก" ในการ์ดที่บอทตอบ หรือเปิดหน้าประวัติเพื่อแก้ไขและลบรายการได้</p></details>
+        <details><summary>ส่งออกข้อมูลได้ไหม</summary><p>ได้ พิมพ์ "ส่งออก" ในแชท หรือกดปุ่มดาวน์โหลดในหน้าประวัติ ได้ไฟล์ CSV เปิดด้วย Excel ภาษาไทยได้ถูกต้อง</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section id="start" style="padding-top:24px">
+    <div class="wrap">
+      <div class="cta-box rv">
         <h2>เริ่มจดวันนี้</h2>
         <p>เพิ่มเพื่อนบอท แล้วลองพิมพ์รายจ่ายแรกของวัน</p>
         <div class="qr-row">
-          <img class="qr" src="qr-add-friend.png" alt="QR code เพิ่มเพื่อน JodDaily (@100hzcuy)" width="180" height="180">
+          <img class="qr" src="qr-add-friend.png" alt="QR code เพิ่มเพื่อน JodDaily (@100hzcuy)" width="184" height="184">
           <div class="qr-text">
             <strong>สแกนด้วย LINE</strong>
             <span>หรือค้นหา <b>@100hzcuy</b></span>
@@ -186,5 +341,16 @@
   </div>
 </footer>
 
+<script>
+  // Reveal blocks as they scroll into view; without IntersectionObserver everything is shown at once.
+  (function () {
+    var els = document.querySelectorAll('.rv');
+    if (!('IntersectionObserver' in window)) { els.forEach(function (e) { e.classList.add('in'); }); return; }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+    }, { threshold: 0.12 });
+    els.forEach(function (e) { io.observe(e); });
+  })();
+</script>
 </body>
 </html>
