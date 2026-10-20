@@ -30,6 +30,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(x => new { x.UserId, x.OccurredOn });
             e.HasIndex(x => new { x.SubscriptionId, x.OccurredOn }).IsUnique();   // one charge per subscription per day (job re-runs are safe)
             e.HasIndex(x => new { x.RecurringId, x.OccurredOn }).IsUnique();      // same for recurring entries
+            e.HasIndex(x => new { x.UserId, x.SlipRef }).IsUnique();             // the same slip is never recorded twice
+            e.Property(x => x.SlipRef).HasMaxLength(40);
             e.HasOne<LedgerAccount>().WithMany().HasForeignKey(x => x.AccountId);
         });
         m.Entity<LedgerSubscription>(e =>

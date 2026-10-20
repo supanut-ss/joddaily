@@ -7,6 +7,13 @@ public class AppSettings
     public LiffSection Liff { get; set; } = new();
     public JobsSection Jobs { get; set; } = new();
     public AppSection App { get; set; } = new();
+    public AnthropicSection Anthropic { get; set; } = new();
+}
+
+public class AnthropicSection
+{
+    public string ApiKey { get; set; } = "";   // empty = reading slips is switched off
+    public string Model { get; set; } = "claude-haiku-5-5";
 }
 
 public class LineSection

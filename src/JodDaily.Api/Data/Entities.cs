@@ -28,6 +28,7 @@ public class LedgerEntry
     public long? SubscriptionId { get; set; }           // set when a subscription charge created it
     public long? RecurringId { get; set; }              // set when a recurring entry created it
     public long? AccountId { get; set; }                // null = not assigned to an account
+    public string? SlipRef { get; set; }                // transfer reference of the slip it came from; one entry per slip
     public DateTime CreatedAt { get; set; }
 }
 

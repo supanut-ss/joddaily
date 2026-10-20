@@ -70,6 +70,7 @@ CREATE TABLE ledger_entries (
   subscription_id  BIGINT        NULL,
   recurring_id     BIGINT        NULL,
   account_id       BIGINT        NULL,
+  slip_ref         NVARCHAR(40)  NULL,            -- transfer reference from the slip QR
   created_at       DATETIME2(3)  NOT NULL,
   CONSTRAINT fk_ledger_user FOREIGN KEY (user_id) REFERENCES users(id),
   CONSTRAINT fk_ledger_entry_account FOREIGN KEY (account_id) REFERENCES ledger_accounts(id)
@@ -77,6 +78,7 @@ CREATE TABLE ledger_entries (
 CREATE INDEX ix_ledger_user_day ON ledger_entries (user_id, occurred_on);
 CREATE UNIQUE INDEX ux_ledger_sub_day ON ledger_entries (subscription_id, occurred_on) WHERE subscription_id IS NOT NULL;
 CREATE UNIQUE INDEX ux_ledger_rec_day ON ledger_entries (recurring_id, occurred_on) WHERE recurring_id IS NOT NULL;
+CREATE UNIQUE INDEX ux_ledger_slip_ref ON ledger_entries (user_id, slip_ref) WHERE slip_ref IS NOT NULL;
 
 CREATE TABLE ledger_subscriptions (
   id              BIGINT IDENTITY(1,1) PRIMARY KEY,

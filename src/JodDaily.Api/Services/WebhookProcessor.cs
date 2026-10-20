@@ -6,7 +6,7 @@ using JodDaily.Line;
 namespace JodDaily.Services;
 
 /// <summary>Handles one LINE webhook event. Only 1:1 chats with the bot are used; group and room events are ignored.</summary>
-public class WebhookProcessor(AppDbContext db, LineClient line, LedgerChatService chat)
+public class WebhookProcessor(AppDbContext db, LineClient line, LedgerChatService chat, ISlipReader slips)
 {
     private const string NotUnderstood = "จดรายการได้โดยพิมพ์ชื่อรายการแล้วตามด้วยจำนวนเงิน เช่น กาแฟ 65\nพิมพ์ ช่วยเหลือ เพื่อดูคำสั่งทั้งหมด";
 
@@ -49,7 +49,8 @@ public class WebhookProcessor(AppDbContext db, LineClient line, LedgerChatServic
                     reply = await chat.HandleTextAsync(user, Str(msg, "text") ?? "");
                     if (reply.Count == 0) reply = new List<object> { LedgerCards.Text(NotUnderstood) };
                 }
-                else reply = new List<object> { LedgerCards.Text("ตอนนี้ยังอ่านรูปหรือสลิปไม่ได้ พิมพ์รายการเป็นข้อความแทน เช่น กาแฟ 65") };
+                else if (Str(msg, "type") == "image") reply = await HandleSlipAsync(user, Str(msg, "id"));
+                else reply = new List<object> { LedgerCards.Text("ส่งสลิปโอนเงินเป็นรูปภาพ หรือพิมพ์รายการเป็นข้อความ เช่น กาแฟ 65") };
                 await ReplyAsync(replyToken, reply);
                 break;
             }
@@ -60,6 +61,16 @@ public class WebhookProcessor(AppDbContext db, LineClient line, LedgerChatServic
                 break;
             }
         }
+    }
+
+    private async Task<List<object>> HandleSlipAsync(AppUser user, string? messageId)
+    {
+        var failed = new List<object> { LedgerCards.Text("อ่านสลิปไม่ได้ ลองส่งรูปที่ชัดขึ้น หรือพิมพ์เอง เช่น โอนค่าข้าว 120") };
+        if (messageId == null) return failed;
+        var image = await line.GetContentAsync(messageId);
+        if (image == null) return failed;
+        var slip = await slips.ReadAsync(image.Value.Bytes, image.Value.MediaType);
+        return slip == null ? failed : await chat.SaveSlipAsync(user, slip);
     }
 
     private async Task ReplyAsync(string? replyToken, List<object> messages)

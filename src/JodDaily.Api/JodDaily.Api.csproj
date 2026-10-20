@@ -17,11 +17,15 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.11" />
     <PackageReference Include="EFCore.NamingConventions" Version="8.0.3" />
+    <PackageReference Include="Tesseract" Version="5.2.0" />
+    <PackageReference Include="ZXing.Net" Version="0.16.9" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- rich menu image uploaded to LINE by POST /jobs/richmenu -->
     <Content Include="richmenu\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- OCR language data for reading the amount on a transfer slip (digits only, so English is enough) -->
+    <Content Include="tessdata\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

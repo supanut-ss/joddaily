@@ -77,6 +77,29 @@ public class LedgerChatService(AppDbContext db, LedgerService ledger, IOptions<A
         return One(LedgerCards.EntrySaved(rows, today, account?.Name));
     }
 
+    /// <summary>Saves a transfer slip as an expense on the default account; the receiver becomes the note.</summary>
+    public async Task<List<object>> SaveSlipAsync(AppUser user, SlipData slip)
+    {
+        var today = BangkokTime.Today;
+        if (slip.Ref != null && await db.LedgerEntries.AnyAsync(e => e.UserId == user.Id && e.SlipRef == slip.Ref))
+            return One(LedgerCards.Text("สลิปใบนี้บันทึกไปแล้ว"));
+        var date = slip.Date is { } d && d <= today.AddDays(1) && d >= today.AddYears(-1) ? d : today;
+        var account = await db.LedgerAccounts.FirstOrDefaultAsync(a => a.UserId == user.Id && a.Active && a.IsDefault);
+        var entry = new LedgerEntry
+        {
+            UserId = user.Id, Kind = "EXPENSE", Category = LedgerParser.GuessCategory(slip.Receiver, "EXPENSE"), AmountSatang = slip.AmountSatang,
+            Note = slip.Receiver, OccurredOn = date, Source = "SLIP", AccountId = account?.Id, SlipRef = slip.Ref, CreatedAt = DateTime.UtcNow
+        };
+        db.LedgerEntries.Add(entry);
+        try { await db.SaveChangesAsync(); }
+        catch (DbUpdateException) when (slip.Ref != null)
+        {
+            db.ChangeTracker.Clear();                                                   // the same slip arrived in parallel
+            return One(LedgerCards.Text("สลิปใบนี้บันทึกไปแล้ว"));
+        }
+        return One(LedgerCards.EntrySaved(new[] { entry }, today, account?.Name));
+    }
+
     private async Task<List<object>> UndoAsync(AppUser user, string ids)
     {
         var list = ids.Split(',').Select(s => long.TryParse(s, out var v) ? v : 0).Where(v => v > 0).ToList();

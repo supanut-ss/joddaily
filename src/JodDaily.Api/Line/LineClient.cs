@@ -72,6 +72,24 @@ public class LineClient(HttpClient http, IOptions<AppSettings> options, ILogger<
         }
     }
 
+    /// <summary>The bytes and media type of an image the user sent; null when LINE refuses or it is over 8 MB.</summary>
+    public async Task<(byte[] Bytes, string MediaType)?> GetContentAsync(string messageId)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, $"https://api-data.line.me/v2/bot/message/{messageId}/content");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Cfg.ChannelAccessToken);
+        try
+        {
+            using var res = await http.SendAsync(req);
+            if (!res.IsSuccessStatusCode || res.Content.Headers.ContentLength > 8_000_000) return null;
+            return (await res.Content.ReadAsByteArrayAsync(), res.Content.Headers.ContentType?.MediaType ?? "image/jpeg");
+        }
+        catch (Exception ex)
+        {
+            log.LogWarning(ex, "LINE content fetch failed");
+            return null;
+        }
+    }
+
     private async Task<bool> PostAsync(string url, object body)
     {
         using var req = new HttpRequestMessage(HttpMethod.Post, url) { Content = JsonContent.Create(body, options: Json) };

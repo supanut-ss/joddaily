@@ -316,8 +316,53 @@ public class WebhookTests : DbTestBase
     {
         var options = Microsoft.Extensions.Options.Options.Create(new AppSettings());
         var line = new LineClient(new HttpClient(_http), options, NullLogger<LineClient>.Instance);
-        _processor = new WebhookProcessor(Db, line, new LedgerChatService(Db, new LedgerService(Db), options));
+        _processor = new WebhookProcessor(Db, line, new LedgerChatService(Db, new LedgerService(Db), options), _slips);
     }
+
+    private sealed class FakeSlipReader : ISlipReader
+    {
+        public SlipData? Result { get; set; }
+        public Task<SlipData?> ReadAsync(byte[] image, string mediaType) => Task.FromResult(Result);
+    }
+
+    private readonly FakeSlipReader _slips = new();
+
+    private static string ImageEvent(string id) =>
+        $$$"""{"type":"message","webhookEventId":"{{{id}}}","replyToken":"rt","source":{"type":"user","userId":"Uabc"},"message":{"type":"image","id":"m1"}}""";
+
+    [Fact]
+    public async Task A_slip_image_is_saved_as_an_expense_from_the_slip_source()
+    {
+        _slips.Result = new SlipData(125050, new DateOnly(2026, 10, 18), "ร้านอาหารครัวบ้านเรา");
+        await _processor.HandleAsync(Event(ImageEvent("s1")));
+
+        var e = await Db.LedgerEntries.SingleAsync();
+        Assert.Equal(("EXPENSE", 125050L, "SLIP", new DateOnly(2026, 10, 18), "ร้านอาหารครัวบ้านเรา"), (e.Kind, e.AmountSatang, e.Source, e.OccurredOn, e.Note));
+        Assert.Contains("บันทึกรายจ่ายแล้ว", Assert.Single(_http.Replies));
+    }
+
+    [Fact]
+    public async Task An_unreadable_image_saves_nothing_and_tells_the_user()
+    {
+        _slips.Result = null;
+        await _processor.HandleAsync(Event(ImageEvent("s2")));
+
+        Assert.Equal(0, await Db.LedgerEntries.CountAsync());
+        Assert.Contains("อ่านสลิปไม่ได้", Assert.Single(_http.Replies));
+    }
+
+    [Theory]
+    [InlineData("{\"isSlip\":true,\"amount\":1250.5,\"date\":\"2026-10-18\",\"receiver\":\"นายสมชาย\"}", 125050L)]
+    [InlineData("```json\n{\"isSlip\":true,\"amount\":65,\"date\":null,\"receiver\":null}\n```", 6500L)]
+    public void The_slip_answer_is_parsed(string reply, long satang) =>
+        Assert.Equal(satang, ClaudeSlipReader.Parse(reply)?.AmountSatang);
+
+    [Theory]
+    [InlineData("{\"isSlip\":false}")]
+    [InlineData("{\"isSlip\":true,\"amount\":0}")]
+    [InlineData("{\"isSlip\":true,\"amount\":null}")]
+    [InlineData("not json")]
+    public void A_non_slip_answer_is_rejected(string reply) => Assert.Null(ClaudeSlipReader.Parse(reply));
 
     private static JsonElement Event(string json) => JsonDocument.Parse(json).RootElement.Clone();
 

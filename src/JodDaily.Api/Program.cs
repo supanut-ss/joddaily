@@ -31,6 +31,8 @@ builder.Services.AddDbContext<AppDbContext>(o => o
     .UseSnakeCaseNamingConvention());
 
 builder.Services.AddHttpClient<LineClient>(c => c.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddHttpClient<ClaudeSlipReader>(c => c.Timeout = TimeSpan.FromSeconds(40));
+builder.Services.AddScoped<ISlipReader, LocalSlipReader>();
 builder.Services.AddScoped<LiffAuth>();
 builder.Services.AddScoped<LedgerService>();
 builder.Services.AddScoped<LedgerChatService>();
@@ -56,7 +58,7 @@ app.MapGet("/health", async (AppDbContext db, ILogger<Program> log) =>
     {
         await db.Database.OpenConnectionAsync();
         await db.Database.CloseConnectionAsync();
-        return Results.Json(new { ok = true });
+        return Results.Json(new { ok = true, slipOcr = SlipOcr.IsAvailable });
     }
     catch (Exception ex)
     {

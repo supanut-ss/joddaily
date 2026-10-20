@@ -42,7 +42,7 @@ Pushes (job; each user on their own hour and switches): **the day before** a sub
 
 ## Not built yet
 
-Reading slips (images), transfers by chat, reconciling an account balance with the bank.
+Transfers by chat, reconciling an account balance with the bank.
 
 ## Hosting
 
