@@ -8,6 +8,7 @@ public class AppSettings
     public JobsSection Jobs { get; set; } = new();
     public AppSection App { get; set; } = new();
     public AnthropicSection Anthropic { get; set; } = new();
+    public GatewaySection Gateway { get; set; } = new();
 }
 
 public class AnthropicSection

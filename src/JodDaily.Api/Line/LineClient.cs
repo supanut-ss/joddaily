@@ -9,7 +9,7 @@ using JodDaily.Config;
 namespace JodDaily.Line;
 
 /// <summary>Thin wrapper over the LINE Messaging API (no official .NET SDK).</summary>
-public class LineClient(HttpClient http, IOptions<AppSettings> options, ILogger<LineClient> log)
+public class LineClient(HttpClient http, IOptions<AppSettings> options, ILogger<LineClient> log, ILineTokenSource? tokens = null)
 {
     private const string Api = "https://api.line.me/v2/bot";
     private static readonly JsonSerializerOptions Json = new()
@@ -18,6 +18,7 @@ public class LineClient(HttpClient http, IOptions<AppSettings> options, ILogger<
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
     };
     private LineSection Cfg => options.Value.Line;
+    private async Task<string> TokenAsync() => tokens != null ? await tokens.GetAsync() : Cfg.ChannelAccessToken;
 
     /// <summary>Reply to a webhook event (a reply token is valid once and for about a minute); LINE accepts at most 5 messages.</summary>
     public Task<bool> ReplyAsync(string replyToken, IEnumerable<object> messages) =>
@@ -29,7 +30,7 @@ public class LineClient(HttpClient http, IOptions<AppSettings> options, ILogger<
     public async Task<string?> GetDisplayNameAsync(string userId)
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, $"{Api}/profile/{userId}");
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Cfg.ChannelAccessToken);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await TokenAsync());
         try
         {
             using var res = await http.SendAsync(req);
@@ -76,7 +77,7 @@ public class LineClient(HttpClient http, IOptions<AppSettings> options, ILogger<
     public async Task<(byte[] Bytes, string MediaType)?> GetContentAsync(string messageId)
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, $"https://api-data.line.me/v2/bot/message/{messageId}/content");
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Cfg.ChannelAccessToken);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await TokenAsync());
         try
         {
             using var res = await http.SendAsync(req);
@@ -93,7 +94,7 @@ public class LineClient(HttpClient http, IOptions<AppSettings> options, ILogger<
     private async Task<bool> PostAsync(string url, object body)
     {
         using var req = new HttpRequestMessage(HttpMethod.Post, url) { Content = JsonContent.Create(body, options: Json) };
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Cfg.ChannelAccessToken);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await TokenAsync());
         try
         {
             using var res = await http.SendAsync(req);
@@ -147,7 +148,7 @@ public class LineClient(HttpClient http, IOptions<AppSettings> options, ILogger<
     private async Task<(bool Ok, string Body)> SendAsync(HttpMethod method, string url, HttpContent? content)
     {
         using var req = new HttpRequestMessage(method, url) { Content = content };
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Cfg.ChannelAccessToken);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await TokenAsync());
         try
         {
             using var res = await http.SendAsync(req);

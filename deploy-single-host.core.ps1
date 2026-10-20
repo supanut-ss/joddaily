@@ -22,8 +22,8 @@ param(
     [Parameter(Mandatory = $true)] [ValidateNotNullOrEmpty()] [string]$Password,
 
     # FTP paths relative to the FTP login root (the subscription root). Pinned below on purpose.
-    [string]$RemotePath = "api.drivetodev.online/joddaily",
-    [string]$PublicBaseUrl = "https://api.drivetodev.online/joddaily",
+    [string]$RemotePath = "gateway.drivetodev.online/joddaily",
+    [string]$PublicBaseUrl = "https://gateway.drivetodev.online/joddaily",
 
     # The static frontend lives in its own Plesk subdomain site.
     [string]$WebRemotePath = "joddaily.drivetodev.online",
@@ -49,8 +49,8 @@ $dryRun = $env:JODDAILY_DEPLOY_DRY_RUN -eq "1"
 # ---- 0. Guard rails -------------------------------------------------------------------------------------
 # The FTP login root is the whole subscription (Pay_Yet's folders, other domains and subdomains). Refuse anything but our own
 # folders, because -PruneRemoteRootFiles below deletes files in the target folder that are not part of this deployment.
-# Never allow 'api.drivetodev.online' itself: that is Pay_Yet's application root.
-$allowedApiFolders = @("api.drivetodev.online/joddaily", "joddaily-api.drivetodev.online")   # the second one: fallback if the sub-application is not possible
+# Never allow 'api.drivetodev.online' or 'gateway.drivetodev.online' itself: those are other applications' roots.
+$allowedApiFolders = @("gateway.drivetodev.online/joddaily", "api.drivetodev.online/joddaily", "joddaily-api.drivetodev.online")   # the second one: fallback if the sub-application is not possible
 $target = $RemotePath.Trim('/').ToLowerInvariant()
 if ($allowedApiFolders -notcontains $target) {
     throw "Refusing to deploy: RemotePath must be one of '$($allowedApiFolders -join "', '")' (got '$RemotePath')."
@@ -151,7 +151,12 @@ function Get-ConfigValue([string]$Path) {
     }
     return [string]$node
 }
-$required = @("ConnectionStrings.Default", "Line.ChannelSecret", "Line.ChannelAccessToken", "Line.LoginChannelId", "Liff.Id", "Jobs.Key", "App.PublicBaseUrl", "App.WebBaseUrl")
+$required = @("Line.LoginChannelId", "Liff.Id", "Jobs.Key", "App.PublicBaseUrl", "App.WebBaseUrl")
+if ([string]::IsNullOrWhiteSpace((Get-ConfigValue "Gateway.ApiKey"))) {
+    $required += @("ConnectionStrings.Default", "Line.ChannelSecret", "Line.ChannelAccessToken")   # no gateway: the keys must be in this file
+} else {
+    $required += @("Gateway.BaseUrl", "Gateway.AppId")             # the DB string and LINE keys come from the gateway
+}
 $problems = @()
 foreach ($key in $required) {
     $value = Get-ConfigValue $key

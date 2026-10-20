@@ -15,6 +15,22 @@ var builder = WebApplication.CreateBuilder(args);
 // Optional machine-local overrides (secrets) that must never be committed.
 builder.Configuration.AddJsonFile("appsettings.Production.json", optional: true, reloadOnChange: false);
 
+// Optional: take the database connection string and the LINE keys from the D2D gateway instead of local files (kept in memory only).
+var gatewayCfg = builder.Configuration.GetSection("Gateway").Get<GatewaySection>() ?? new GatewaySection();
+if (gatewayCfg.Enabled)
+{
+    var gateway = new GatewayClient(gatewayCfg);
+    var overlay = new Dictionary<string, string?>
+    {
+        ["ConnectionStrings:Default"] = gateway.GetDatabaseAsync().GetAwaiter().GetResult().ConnectionString
+    };
+    var line = gateway.GetLineAsync().GetAwaiter().GetResult();
+    overlay["Line:ChannelSecret"] = line.ChannelSecret;
+    overlay["Line:ChannelAccessToken"] = line.AccessToken ?? "";
+    builder.Services.AddSingleton<ILineTokenSource>(new GatewayLineTokenSource(gateway, line.AccessToken ?? "", line.AccessTokenExpiresAt));
+    builder.Configuration.AddInMemoryCollection(overlay);
+}
+
 builder.Services.Configure<AppSettings>(builder.Configuration);
 builder.Services.AddControllers();
 
