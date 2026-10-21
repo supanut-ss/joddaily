@@ -1429,6 +1429,15 @@
   }
   if (DEMO) { Demo.init(); start(new URLSearchParams(location.search)); return; }
 
+  // The app is for phones: on a desktop browser or the LINE desktop client it only asks to be opened on a phone.
+  var ua = navigator.userAgent;
+  var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);   // the last one: iPadOS
+  if (!isMobile) {
+    chrome(null);
+    app.innerHTML = '<div class="loading"><b>จดจ่ายใช้งานบนมือถือเท่านั้น</b><br>เปิดจากแอป LINE บนโทรศัพท์ได้เลย</div>';
+    return;
+  }
+
   fetch(API + 'api/config').then(function (r) { return r.json(); }).then(function (cfg) {
     return liff.init({ liffId: cfg.liffId });
   }).then(function () {
