@@ -1,8 +1,8 @@
 <#
     Single-host deployment for JodDaily on the shared Plesk host (the same host as Pay_Yet, nothing shared with it).
 
-      API       ASP.NET Core app, a sub-application of the API site:  https://api.drivetodev.online/joddaily   (FTP folder api.drivetodev.online/joddaily)
-      Frontend  static LIFF page, a site of its own:                  https://joddaily.drivetodev.online      (FTP folder joddaily.drivetodev.online)
+      API       ASP.NET Core app, a sub-application of the gateway site: https://gateway.drivetodev.online/joddaily   (FTP folder gateway.drivetodev.online/joddaily)
+      Frontend  static LIFF page, a folder of the main site:          https://drivetodev.online/joddaily      (FTP folder drivetodev.online/joddaily)
 
     API flow:  0. validate target + production config   1. unit tests   2. dotnet publish (win-x86 self-contained)
                3. stage config into the publish folder  4. app_offline.htm  5. upload files  6. bring online
@@ -25,9 +25,9 @@ param(
     [string]$RemotePath = "gateway.drivetodev.online/joddaily",
     [string]$PublicBaseUrl = "https://gateway.drivetodev.online/joddaily",
 
-    # The static frontend lives in its own Plesk subdomain site.
-    [string]$WebRemotePath = "joddaily.drivetodev.online",
-    [string]$WebPublicUrl = "https://joddaily.drivetodev.online",
+    # The static frontend lives in a sub-folder of the main site (drivetodev.online).
+    [string]$WebRemotePath = "drivetodev.online/joddaily",
+    [string]$WebPublicUrl = "https://drivetodev.online/joddaily",
     [ValidateSet("all", "api", "web")] [string]$Component = "all",   # api = backend only, web = frontend only
     [string]$ConfigPath = "",
 
@@ -56,8 +56,8 @@ if ($allowedApiFolders -notcontains $target) {
     throw "Refusing to deploy: RemotePath must be one of '$($allowedApiFolders -join "', '")' (got '$RemotePath')."
 }
 $webTarget = $WebRemotePath.Trim('/').ToLowerInvariant()
-if ($webTarget -ne "joddaily.drivetodev.online") {
-    throw "Refusing to deploy: WebRemotePath must be 'joddaily.drivetodev.online' (got '$WebRemotePath')."
+if (@("drivetodev.online/joddaily", "joddaily.drivetodev.online") -notcontains $webTarget) {
+    throw "Refusing to deploy: WebRemotePath must be 'drivetodev.online/joddaily' or 'joddaily.drivetodev.online' (got '$WebRemotePath')."
 }
 $PublicBaseUrl = $PublicBaseUrl.TrimEnd('/')
 $WebPublicUrl = $WebPublicUrl.TrimEnd('/')

@@ -4,23 +4,23 @@ Two separate deployments, like Pay_Yet's:
 
 | Part | What | Where (planned) |
 |---|---|---|
-| **API** | the ASP.NET Core app: LINE webhook, the LIFF page's API, the hourly job, CSV download. **No frontend files inside.** | the same site as Pay_Yet's API (`api.drivetodev.online`), in its own folder `joddaily` as a sub-application: `https://api.drivetodev.online/joddaily` |
-| **Frontend** | a landing page at `/` (features, add-friend button) and the LIFF page at `/app/` (`web/`, static: `index.html`, `app/index.html`, `config.js`, icons); inside LINE, `/` passes on to `/app/` | a static site of its own: **`https://joddaily.drivetodev.online`** (Plesk subdomain `joddaily` of `drivetodev.online`, FTP folder `joddaily.drivetodev.online`), like Pay_Yet's `payyet.drivetodev.online` |
+| **API** | the ASP.NET Core app: LINE webhook, the LIFF page's API, the hourly job, CSV download. **No frontend files inside.** | the gateway site (`gateway.drivetodev.online`, which also holds other projects' APIs), in its own folder `joddaily` as a sub-application: `https://gateway.drivetodev.online/joddaily` |
+| **Frontend** | a landing page at `/` (features, add-friend button) and the LIFF page at `/app/` (`web/`, static: `index.html`, `app/index.html`, `config.js`, icons); inside LINE, `/` passes on to `/app/` | a folder of the main site: **`https://drivetodev.online/joddaily/`** (FTP folder `drivetodev.online/joddaily`; the folder only holds our files, the rest of the site is untouched) |
 
 JodDaily shares nothing with Pay_Yet except the host: its own folder, database, DB user and LINE channels. The browser calls the API from the frontend site cross-origin; the API allows that one origin (`App:WebBaseUrl`).
 
-Below: `<api>` = `https://api.drivetodev.online/joddaily`, `<web>` = `https://joddaily.drivetodev.online`.
+Below: `<api>` = `https://gateway.drivetodev.online/joddaily`, `<web>` = `https://drivetodev.online/joddaily`.
 
 ## To confirm first: a sub-application under the API site
 
 Everything about the host below comes from Pay_Yet's deployment notes; **the sub-application was not tried**.
 
 - Pay_Yet's site root is an ASP.NET Core app whose `web.config` has `inheritInChildApplications="false"`, which is what allows child applications. A plain sub-*folder* is not enough: IIS would hand `/joddaily/...` to Pay_Yet's app, which answers 404. The folder must be an IIS **application** (Plesk → the site → *Virtual Directories* / *Applications*, or IIS Manager if you have it).
-- A sub-path under the apex site failed for Pay_Yet with 500.19 (handlers section locked). The API site has a different config, so it may work; if it does not, use **a subdomain for the API too** (e.g. `joddaily-api.drivetodev.online`, its own folder). The app supports both: only `App:PathBase` (`/joddaily` or empty) and the URLs below change.
+- If a sub-application on the gateway site is not possible, use **a subdomain for the API** (e.g. `joddaily-api.drivetodev.online`, its own folder). The app supports both: only `App:PathBase` (`/joddaily` or empty) and the URLs below change.
 
 ## One-time setup
 
-1. **Frontend site:** Plesk → Websites & Domains → add the subdomain `joddaily` to `drivetodev.online` (document root = its own folder `joddaily.drivetodev.online`), no PHP/ASP.NET needed, **SSL/TLS → Let's Encrypt** and "Redirect from HTTP to HTTPS".
+1. **Frontend folder:** create `joddaily` inside the main site's folder `drivetodev.online` (the site already has its certificate); no PHP/ASP.NET needed. The LIFF endpoint URL is `<web>/` (with the slash).
 2. **API:** create the folder `joddaily` inside the API site's folder and make it an application (see above). The API site already has its certificate.
 3. **Database:** Create a SQL Server database (e.g. `thaipes_joddaily`) with **its own login/user** (Plesk → Databases if the host offers SQL Server, otherwise SSMS). Run [../db/schema.sql](../db/schema.sql) in it (SSMS or `sqlcmd -I`; the migrations contain a `GO` separator, so run them in a tool that understands it). (A database made from an older schema.sql: run the files in [../db/migrations](../db/migrations) in date order instead.)
 4. **LINE Developers** (separate from Pay_Yet's channels, so the two bots never mix):
@@ -36,7 +36,7 @@ Everything about the host below comes from Pay_Yet's deployment notes; **the sub
 | `Jobs:Key` | a long random string (it guards `/jobs/*`) |
 | `App:PublicBaseUrl` | `<api>` (no trailing slash; used in CSV download links) |
 | `App:PathBase` | `/joddaily` for the sub-application; empty if the API has a site of its own |
-| `App:WebBaseUrl` | `https://joddaily.drivetodev.online`: the only origin allowed to call the API from a browser (several: comma-separated; no path, no trailing slash needed) |
+| `App:WebBaseUrl` | `https://drivetodev.online`: the only origin allowed to call the API from a browser (several: comma-separated; no path, no trailing slash needed) |
 
 ## Build and upload
 
@@ -56,10 +56,10 @@ Everything about the host below comes from Pay_Yet's deployment notes; **the sub
 **Frontend**
 
 ```powershell
-.\tools\publish-web.ps1                  # copies web\ into .\publish-web and writes config.js with the API address (default https://api.drivetodev.online/joddaily/)
+.\tools\publish-web.ps1                  # copies web\ into .\publish-web and writes config.js with the API address (default https://gateway.drivetodev.online/joddaily/)
 ```
 
-Upload the contents of `publish-web\` to the folder `joddaily.drivetodev.online` (FTP root of the subscription). To point at another API later (say the fallback subdomain), run it with `-ApiUrl <url>` or edit only `config.js` on the server.
+Upload the contents of `publish-web\` to the folder `drivetodev.online/joddaily` (FTP root of the subscription). To point at another API later (say the fallback subdomain), run it with `-ApiUrl <url>` or edit only `config.js` on the server.
 
 Or let the scripts do all of this (next section).
 
@@ -77,7 +77,7 @@ Once: copy `deploy.credentials.example.ps1` to `deploy.credentials.ps1` (git-ign
 
 What it checks and refuses:
 
-- **Folders are pinned.** The API goes to `api.drivetodev.online/joddaily` (or `joddaily-api.drivetodev.online`, the fallback), the frontend to `joddaily.drivetodev.online`. Any other `RemotePath`, above all Pay_Yet's `api.drivetodev.online` itself, is refused, because the upload prunes files of the target folder.
+- **Folders are pinned.** The API goes to `gateway.drivetodev.online/joddaily` (the previous `api.drivetodev.online/joddaily` and `joddaily-api.drivetodev.online` are still accepted), the frontend to `drivetodev.online/joddaily` (or the old `joddaily.drivetodev.online`). Any other `RemotePath`, above all a site root such as Pay_Yet's `api.drivetodev.online`, is refused, because the upload prunes files of the target folder.
 - **Config must fit the deployment**: no `CHANGE_ME` values, `App:PublicBaseUrl`, `App:WebBaseUrl` and `App:PathBase` agree with the target URLs.
 - The remote folder must already exist (the script does not create it, so it cannot make a plain folder that Pay_Yet's app would answer instead).
 - After the upload: `/health` is 200, `/` is answered by JodDaily, `/api/config` returns your `Liff:Id`, the webhook and `/jobs/daily` and the ledger API refuse anonymous calls (the ledger API with a JSON error body, not Plesk's error page), and the API allows the frontend's origin. If a check fails the app is put back into maintenance mode. The frontend deploy checks the page, `config.js` and that CORS answer.
